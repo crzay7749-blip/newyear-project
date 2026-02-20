@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>年兽大冒险 - 春节弹幕躲避</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a0000 0%, #4a0000 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            border: 8px solid #8B4513;
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(255, 100, 0, 0.5);
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .ui-box {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            padding: 8px 15px;
+            color: #FFD700;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #health-bar {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            width: 20px;
+            height: 20px;
+            background: #FF0000;
+            clip-path: path('M10 3 C10 3 7 1 5 1 C2 1 0 4 0 7 C0 12 10 18 10 18 C10 18 20 12 20 7 C20 4 18 1 15 1 C13 1 10 3 10 3');
+        }
+
+        .heart.lost {
+            background: #444;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            text-align: center;
+        }
+
+        #overlay.hidden {
+            display: none;
+        }
+
+        #overlay h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 0 #8B0000;
+            letter-spacing: 8px;
+        }
+
+        #overlay h2 {
+            font-size: 64px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 0 #8B0000;
+        }
+
+        #overlay p {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #FFA500;
+        }
+
+        #overlay .start-hint {
+            font-size: 24px;
+            margin-top: 30px;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .controls-info {
+            margin-top: 30px;
+            text-align: left;
+            font-size: 14px;
+            color: #FFA500;
+            background: rgba(139, 69, 19, 0.5);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #FFD700;
+        }
+
+        .controls-info p {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="ui">
+            <div class="ui-box">
+                <div id="health-bar">
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                </div>
+            </div>
+            <div class="ui-box">
+                已躲避: <span id="dodgeCount">0</span> / 150
+            </div>
+        </div>
+
+        <div id="overlay">
+            <h1>年兽大冒险</h1>
+            <h2 id="overlayTitle">🧧 春节快乐 🧧</h2>
+            <p id="overlayMessage">帮助年兽躲避从四面八方飞来的鞭炮！</p>
+
+            <div class="controls-info" style="margin-top: 20px;">
+                <h3 style="color: #FFD700; font-size: 18px; margin-bottom: 15px; text-align: center;">📜 游戏规则</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <span style="color: #FF4500;">🎯</span>
+                        <span><strong>目标：</strong>成功躲避 150 个鞭炮即可通关</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <span style="color: #FF4500;">💣</span>
+                        <span><strong>躲避：</strong>鞭炮会从上方、左方、右方飞来，碰到会失去一颗心</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <span style="color: #FF4500;">🍘</span>
+                        <span><strong>恢复：</strong>收集年糕可恢复 1 点生命值（最多3颗心）</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <span style="color: #FF4500;">⚡</span>
+                        <span><strong>难度：</strong>随着躲避数量增加，鞭炮会越来越快、越来越多</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <span style="color: #FF4500;">💖</span>
+                        <span><strong>生命：</strong>你有 3 颗心，全部失去游戏结束</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-info" style="margin-top: 20px;">
+                <h3 style="color: #FFD700; font-size: 18px; margin-bottom: 15px; text-align: center;">🎮 操作方式</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <p>⬅️ ➡️ 左右移动躲避鞭炮</p>
+                    <p>⬆️ 跳到上一层台阶</p>
+                    <p>⬇️ 降到下一层台阶</p>
+                    <p>💡 可以在不同层间灵活切换，寻找最佳躲避位置</p>
+                </div>
+            </div>
+
+            <p class="start-hint">按 [空格键] 或 [回车键] 开始游戏</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayMessage = document.getElementById('overlayMessage');
+        const dodgeCountEl = document.getElementById('dodgeCount');
+        const healthBar = document.getElementById('health-bar');
+
+        // Game constants
+        const PLATFORM_HEIGHT = 120;
+        const PLATFORM_WIDTH = 800;
+        const PLATFORM_Y_BOTTOM = 500;
+        const PLATFORM_Y_MIDDLE = PLATFORM_Y_BOTTOM - PLATFORM_HEIGHT;
+        const PLATFORM_Y_TOP = PLATFORM_Y_MIDDLE - PLATFORM_HEIGHT;
+        const PLAYER_SIZE = 40;
+        const FIRECRACKER_SIZE = 30;
+        const RICE_CAKE_SIZE = 25;
+
+        // Game state
+        let gameState = 'start'; // start, playing, won, lost
+        let player = {
+            x: 400,
+            y: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+            platformIndex: 2, // 0=top, 1=middle, 2=bottom
+            health: 3,
+            targetY: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+            velocityY: 0,
+            jumping: false,
+            hitTime: 0, // 受击时间戳
+            isInvincible: false // 是否处于无敌状态
+        };
+
+        let firecrackers = [];
+        let riceCakes = [];
+        let dodgedCount = 0;
+        let targetDodge = 150;
+        let difficulty = 1;
+        let particles = [];
+        let lastFirecrackerTime = 0;
+        let lastFirecrackerTimeSide = 0;
+        let firecrackerInterval = 600;
+        let firecrackerIntervalSide = 800;
+        let lastRiceCakeTime = 0;
+
+        // Input handling
+        const keys = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
+
+        // Pixel art sprites
+        const nianSprite = [
+            '..........XXXXXX..........',
+            '.......XXXXXXXXXXXX........',
+            '......XXXXXXXXXXXXXX......',
+            '.....XXXXXXXXXXXXXXXX.....',
+            '....XXX...XXXX...XXX.....',
+            '...XX..X...XXXX...X..XX...',
+            '..XX...X...XXXX...X...XX..',
+            '.XX....X...XXXX...X....XX.',
+            '.XX....XXXXXXXXXXX....XX.',
+            '..XX....XXXXXXXXXXX....XX..',
+            '...XX....XXXXXXXXX....XX...',
+            '....XX...XXXXXXXXX...XX....',
+            '.....XXXXXXXXXXXXXXXX.....',
+            '......XXXXXXXXXXXXXX......',
+            '.......XXXXXXXXXXXX.......',
+            '........XXXXXXXXXX........'
+        ];
+
+        const firecrackerSprite = [
+            '....XX....',
+            '...XXXX...',
+            '..XXXXXX..',
+            '.XXXXXXXX.',
+            '.XXXXXXXX.',
+            '..XXXXXX..',
+            '...XXXX...',
+            '....XX....'
+        ];
+
+        const riceCakeSprite = [
+            '..XXXXXX..',
+            '.XXXXXXXX.',
+            '.XX.XX.XX.',
+            '.XX....XX.',
+            '.XX....XX.',
+            '.XX.XX.XX.',
+            '.XXXXXXXX.',
+            '..XXXXXX..'
+        ];
+
+        function drawPixelSprite(sprite, x, y, size, color) {
+            const pixelSize = size / sprite[0].length;
+            ctx.fillStyle = color;
+
+            for (let row = 0; row < sprite.length; row++) {
+                for (let col = 0; col < sprite[row].length; col++) {
+                    if (sprite[row][col] === 'X') {
+                        ctx.fillRect(
+                            x + col * pixelSize,
+                            y + row * pixelSize,
+                            pixelSize,
+                            pixelSize
+                        );
+                    }
+                }
+            }
+        }
+
+        function drawBackground() {
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#2d0a0a');
+            gradient.addColorStop(0.5, '#4a1515');
+            gradient.addColorStop(1, '#1a0505');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw decorative lanterns
+            drawLantern(100, 80);
+            drawLantern(700, 80);
+            drawLantern(400, 50);
+
+            // Draw decorative "福" character
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(360, 100, 80, 80);
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 50px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('福', 400, 160);
+
+            // Draw clouds
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.1)';
+            for (let i = 0; i < 5; i++) {
+                const cloudX = (Date.now() / 50 + i * 200) % (canvas.width + 200) - 100;
+                ctx.beginPath();
+                ctx.arc(cloudX, 60 + i * 20, 40, 0, Math.PI * 2);
+                ctx.arc(cloudX + 30, 50 + i * 20, 35, 0, Math.PI * 2);
+                ctx.arc(cloudX + 60, 60 + i * 20, 40, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawLantern(x, y) {
+            // Lantern body
+            const gradient = ctx.createRadialGradient(x + 20, y + 40, 5, x + 20, y + 40, 30);
+            gradient.addColorStop(0, '#FF6B6B');
+            gradient.addColorStop(1, '#8B0000');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(x + 20, y + 40, 20, 30, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gold border
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Tassel
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + 15, y + 70, 10, 20);
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + 20, y + 40, 40, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawPlatforms() {
+            const platformY = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+
+            platformY.forEach((y, index) => {
+                // Platform shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(20, y + 10, PLATFORM_WIDTH - 40, 15);
+
+                // Main platform
+                const gradient = ctx.createLinearGradient(0, y, 0, y + 15);
+                gradient.addColorStop(0, '#CD853F');
+                gradient.addColorStop(0.5, '#8B4513');
+                gradient.addColorStop(1, '#654321');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, y, PLATFORM_WIDTH, 15);
+
+                // Platform top highlight
+                ctx.fillStyle = '#DEB887';
+                ctx.fillRect(0, y, PLATFORM_WIDTH, 3);
+
+                // Decorative pattern
+                ctx.fillStyle = '#FFD700';
+                for (let i = 0; i < PLATFORM_WIDTH; i += 80) {
+                    ctx.fillRect(i + 35, y + 5, 10, 5);
+                }
+            });
+        }
+
+        function drawPlayer() {
+            // 检查无敌状态和闪烁效果
+            const now = Date.now();
+            if (player.isInvincible) {
+                if (now - player.hitTime > 1000) { // 1秒无敌时间
+                    player.isInvincible = false;
+                } else {
+                    // 闪烁效果：每100ms切换一次透明度
+                    const flashPhase = Math.floor((now - player.hitTime) / 100) % 2;
+                    if (flashPhase === 0) {
+                        ctx.globalAlpha = 0.3; // 半透明
+                    }
+                }
+            }
+
+            // Draw shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE + 5, 15, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body gradient
+            const gradient = ctx.createRadialGradient(
+                player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE / 2, 5,
+                player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE / 2, PLAYER_SIZE
+            );
+            gradient.addColorStop(0, '#FF6B6B');
+            gradient.addColorStop(0.7, '#DC143C');
+            gradient.addColorStop(1, '#8B0000');
+
+            // Draw body
+            ctx.fillStyle = gradient;
+            ctx.fillRect(player.x + 5, player.y + 10, PLAYER_SIZE - 10, PLAYER_SIZE - 10);
+
+            // Draw head
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(player.x + 10, player.y, PLAYER_SIZE - 20, 15);
+
+            // Draw horns
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(player.x + 10, player.y);
+            ctx.lineTo(player.x + 5, player.y - 8);
+            ctx.lineTo(player.x + 15, player.y + 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(player.x + PLAYER_SIZE - 10, player.y);
+            ctx.lineTo(player.x + PLAYER_SIZE - 5, player.y - 8);
+            ctx.lineTo(player.x + PLAYER_SIZE - 15, player.y + 2);
+            ctx.fill();
+
+            // Draw eyes
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(player.x + 12, player.y + 5, 5, 5);
+            ctx.fillRect(player.x + PLAYER_SIZE - 17, player.y + 5, 5, 5);
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 14, player.y + 6, 2, 3);
+            ctx.fillRect(player.x + PLAYER_SIZE - 15, player.y + 6, 2, 3);
+
+            // Draw mane
+            ctx.fillStyle = '#FFD700';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(player.x + 8 + i * 10, player.y - 3, 6, 8);
+            }
+
+            // Draw legs
+            ctx.fillStyle = '#DC143C';
+            const legOffset = Math.sin(Date.now() / 100) * 2;
+            ctx.fillRect(player.x + 8, player.y + PLAYER_SIZE - 8, 8, 8 + legOffset);
+            ctx.fillRect(player.x + PLAYER_SIZE - 16, player.y + PLAYER_SIZE - 8, 8, 8 - legOffset);
+
+            // Draw claws
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(player.x + 6, player.y + PLAYER_SIZE + legOffset, 10, 3);
+            ctx.fillRect(player.x + PLAYER_SIZE - 16, player.y + PLAYER_SIZE - legOffset, 10, 3);
+
+            // 重置透明度
+            ctx.globalAlpha = 1;
+        }
+
+        function drawFirecracker(firecracker) {
+            const x = firecracker.x;
+            const y = firecracker.y;
+            const size = FIRECRACKER_SIZE;
+            const direction = firecracker.direction || 'down';
+
+            // Save context for rotation
+            ctx.save();
+
+            // Rotate based on direction
+            if (direction === 'right') {
+                ctx.translate(x + size / 2, y + size / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.translate(-(x + size / 2), -(y + size / 2));
+            } else if (direction === 'left') {
+                ctx.translate(x + size / 2, y + size / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.translate(-(x + size / 2), -(y + size / 2));
+            }
+
+            // Glow effect
+            ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw firecracker string
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(x + size / 2 - 3, y, 6, size);
+
+            // Draw individual crackers
+            for (let i = 0; i < 4; i++) {
+                const crackerY = y + i * 8;
+                ctx.fillStyle = i % 2 === 0 ? '#FF4500' : '#DC143C';
+                ctx.fillRect(x, crackerY, size, 8);
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(x, crackerY, size, 2);
+            }
+
+            // Draw fuse spark (position based on direction)
+            let sparkX = x + size / 2;
+            let sparkY = y - 5;
+
+            if (direction === 'right') {
+                sparkX = x - 5;
+                sparkY = y + size / 2;
+            } else if (direction === 'left') {
+                sparkX = x + size + 5;
+                sparkY = y + size / 2;
+            }
+
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(sparkX, sparkY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#FF6B00';
+            ctx.beginPath();
+            ctx.arc(sparkX, sparkY, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw particles
+            if (Math.random() > 0.7) {
+                particles.push({
+                    x: sparkX,
+                    y: sparkY,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: -Math.random() * 3,
+                    life: 20,
+                    color: Math.random() > 0.5 ? '#FFD700' : '#FF6B00'
+                });
+            }
+
+            ctx.restore();
+        }
+
+        function drawRiceCake(riceCake) {
+            const x = riceCake.x;
+            const y = riceCake.y;
+            const size = RICE_CAKE_SIZE;
+            const pulse = Math.sin(Date.now() / 200) * 3;
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2 + pulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rice cake body
+            const gradient = ctx.createRadialGradient(
+                x + size / 2, y + size / 2, 5,
+                x + size / 2, y + size / 2, size
+            );
+            gradient.addColorStop(0, '#FFFAF0');
+            gradient.addColorStop(1, '#F5DEB3');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+
+            // Highlight
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(x + 5, y + 5, 8, 3);
+
+            // Gold decoration
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + size / 2 - 4, y + size / 2 - 4, 8, 8);
+            ctx.fillStyle = '#DAA520';
+            ctx.fillRect(x + size / 2 - 2, y + size / 2 - 2, 4, 4);
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1;
+                p.life--;
+
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 20;
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+                ctx.globalAlpha = 1;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function updatePlayer() {
+            const speed = 5;
+            const platforms = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+
+            if (keys.left) {
+                player.x -= speed;
+            }
+            if (keys.right) {
+                player.x += speed;
+            }
+
+            // Boundary check
+            player.x = Math.max(0, Math.min(canvas.width - PLAYER_SIZE, player.x));
+
+            // Platform switching
+            if (keys.up && !player.jumping && player.platformIndex > 0) {
+                const targetPlatformIndex = player.platformIndex - 1;
+                player.jumping = true;
+                player.jumpProgress = 0;
+                player.jumpStartY = player.y;
+                player.jumpTargetY = platforms[targetPlatformIndex] - PLAYER_SIZE;
+                player.jumpPeakY = Math.min(player.y, player.jumpTargetY) - 30; // 跳跃峰值
+                player.platformIndex = targetPlatformIndex;
+            }
+            if (keys.down && !player.jumping && player.platformIndex < 2) {
+                const targetPlatformIndex = player.platformIndex + 1;
+                player.jumping = true;
+                player.jumpProgress = 0;
+                player.jumpStartY = player.y;
+                player.jumpTargetY = platforms[targetPlatformIndex] - PLAYER_SIZE;
+                player.jumpPeakY = Math.min(player.y, player.jumpTargetY) - 30; // 跳跃峰值
+                player.platformIndex = targetPlatformIndex;
+            }
+
+            // Jump animation with arc
+            if (player.jumping) {
+                player.jumpProgress += 0.04; // 跳跃速度
+
+                if (player.jumpProgress >= 1) {
+                    player.jumpProgress = 1;
+                    player.jumping = false;
+                    player.y = player.jumpTargetY;
+                } else {
+                    // 使用抛物线轨迹：先向上到峰值，再向下到目标
+                    const progress = player.jumpProgress;
+                    const arcHeight = Math.sin(progress * Math.PI) * 30; // 30像素的跳跃高度
+
+                    // 线性插值计算基础Y位置
+                    const baseY = player.jumpStartY + (player.jumpTargetY - player.jumpStartY) * progress;
+
+                    // 添加抛物线弧度
+                    player.y = baseY - arcHeight;
+                }
+            } else {
+                player.y = platforms[player.platformIndex] - PLAYER_SIZE;
+            }
+        }
+
+        function spawnFirecracker() {
+            const now = Date.now();
+
+            // Spawn from top
+            if (now - lastFirecrackerTime > firecrackerInterval) {
+                firecrackers.push({
+                    x: Math.random() * (canvas.width - FIRECRACKER_SIZE),
+                    y: -FIRECRACKER_SIZE,
+                    speed: 2.5 + difficulty * 0.2,
+                    direction: 'down',
+                    counted: false
+                });
+                lastFirecrackerTime = now;
+            }
+
+            // Spawn from sides
+            if (now - lastFirecrackerTimeSide > firecrackerIntervalSide) {
+                const fromLeft = Math.random() > 0.5;
+                const platforms = [PLATFORM_Y_TOP + 15, PLATFORM_Y_MIDDLE + 15, PLATFORM_Y_BOTTOM + 15];
+                const targetPlatform = platforms[Math.floor(Math.random() * 3)];
+
+                if (fromLeft) {
+                    firecrackers.push({
+                        x: -FIRECRACKER_SIZE,
+                        y: targetPlatform - FIRECRACKER_SIZE - Math.random() * 20,
+                        speed: 3 + difficulty * 0.25,
+                        direction: 'right',
+                        counted: false
+                    });
+                } else {
+                    firecrackers.push({
+                        x: canvas.width,
+                        y: targetPlatform - FIRECRACKER_SIZE - Math.random() * 20,
+                        speed: 3 + difficulty * 0.25,
+                        direction: 'left',
+                        counted: false
+                    });
+                }
+                lastFirecrackerTimeSide = now;
+            }
+        }
+
+        function spawnRiceCake() {
+            const now = Date.now();
+            if (now - lastRiceCakeTime > 5000 && riceCakes.length < 3) {
+                const platformIndex = Math.floor(Math.random() * 3);
+                const platforms = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+                riceCakes.push({
+                    x: Math.random() * (canvas.width - RICE_CAKE_SIZE - 40) + 20,
+                    y: platforms[platformIndex] - RICE_CAKE_SIZE,
+                    platformIndex: platformIndex
+                });
+                lastRiceCakeTime = now;
+            }
+        }
+
+        function updateFirecrackers() {
+            for (let i = firecrackers.length - 1; i >= 0; i--) {
+                const firecracker = firecrackers[i];
+
+                // Update position based on direction
+                if (firecracker.direction === 'down') {
+                    firecracker.y += firecracker.speed;
+                } else if (firecracker.direction === 'right') {
+                    firecracker.x += firecracker.speed;
+                } else if (firecracker.direction === 'left') {
+                    firecracker.x -= firecracker.speed;
+                }
+
+                // Check collision with player
+                if (checkCollision(player, firecracker) && !player.isInvincible) {
+                    player.health--;
+                    player.isInvincible = true;
+                    player.hitTime = Date.now();
+                    updateHealthBar();
+                    firecrackers.splice(i, 1);
+
+                    // Create explosion particles
+                    for (let j = 0; j < 20; j++) {
+                        particles.push({
+                            x: player.x + PLAYER_SIZE / 2,
+                            y: player.y + PLAYER_SIZE / 2,
+                            vx: (Math.random() - 0.5) * 8,
+                            vy: (Math.random() - 0.5) * 8,
+                            life: 30,
+                            color: Math.random() > 0.5 ? '#FF4500' : '#FFD700'
+                        });
+                    }
+
+                    if (player.health <= 0) {
+                        endGame(false);
+                    }
+                    continue;
+                }
+
+                // Remove if off screen
+                const isOffScreen = (
+                    (firecracker.direction === 'down' && firecracker.y > canvas.height) ||
+                    (firecracker.direction === 'right' && firecracker.x > canvas.width) ||
+                    (firecracker.direction === 'left' && firecracker.x < -FIRECRACKER_SIZE)
+                );
+
+                if (isOffScreen) {
+                    if (!firecracker.counted) {
+                        dodgedCount++;
+                        dodgeCountEl.textContent = dodgedCount;
+                        firecracker.counted = true;
+
+                        // Increase difficulty
+                        if (dodgedCount % 15 === 0) {
+                            difficulty++;
+                            firecrackerInterval = Math.max(200, firecrackerInterval - 40);
+                            firecrackerIntervalSide = Math.max(300, firecrackerIntervalSide - 50);
+                        }
+
+                        // Check win condition
+                        if (dodgedCount >= targetDodge) {
+                            endGame(true);
+                        }
+                    }
+                    firecrackers.splice(i, 1);
+                }
+            }
+        }
+
+        function updateRiceCakes() {
+            for (let i = riceCakes.length - 1; i >= 0; i--) {
+                const riceCake = riceCakes[i];
+
+                // Check collision with player
+                if (checkRiceCakeCollision(player, riceCake)) {
+                    if (player.health < 3) {
+                        player.health++;
+                        updateHealthBar();
+                    }
+                    riceCakes.splice(i, 1);
+
+                    // Create collect particles
+                    for (let j = 0; j < 15; j++) {
+                        particles.push({
+                            x: riceCake.x + RICE_CAKE_SIZE / 2,
+                            y: riceCake.y + RICE_CAKE_SIZE / 2,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 25,
+                            color: '#FFD700'
+                        });
+                    }
+                    continue;
+                }
+
+                // Remove old rice cakes
+                if (Date.now() - riceCake.spawnTime > 15000) {
+                    riceCakes.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollision(player, firecracker) {
+            return player.x < firecracker.x + FIRECRACKER_SIZE &&
+                   player.x + PLAYER_SIZE > firecracker.x &&
+                   player.y < firecracker.y + FIRECRACKER_SIZE &&
+                   player.y + PLAYER_SIZE > firecracker.y;
+        }
+
+        function checkRiceCakeCollision(player, riceCake) {
+            return player.x < riceCake.x + RICE_CAKE_SIZE &&
+                   player.x + PLAYER_SIZE > riceCake.x &&
+                   player.y < riceCake.y + RICE_CAKE_SIZE &&
+                   player.y + PLAYER_SIZE > riceCake.y;
+        }
+
+        function updateHealthBar() {
+            const hearts = healthBar.querySelectorAll('.heart');
+            hearts.forEach((heart, index) => {
+                if (index < player.health) {
+                    heart.classList.remove('lost');
+                } else {
+                    heart.classList.add('lost');
+                }
+            });
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            player = {
+                x: 400,
+                y: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+                platformIndex: 2,
+                health: 3,
+                targetY: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+                velocityY: 0,
+                jumping: false,
+                hitTime: 0,
+                isInvincible: false
+            };
+            firecrackers = [];
+            riceCakes = [];
+            particles = [];
+            dodgedCount = 0;
+            difficulty = 1;
+            firecrackerInterval = 600;
+            firecrackerIntervalSide = 800;
+            lastFirecrackerTime = Date.now();
+            lastFirecrackerTimeSide = Date.now();
+            lastRiceCakeTime = Date.now();
+
+            dodgeCountEl.textContent = '0';
+            updateHealthBar();
+            overlay.classList.add('hidden');
+        }
+
+        function endGame(won) {
+            gameState = won ? 'won' : 'lost';
+            overlay.classList.remove('hidden');
+
+            if (won) {
+                overlayTitle.textContent = '🎉 恭喜通关！🎉';
+                overlayMessage.textContent = `年兽成功躲避了 ${dodgedCount} 个鞭炮！新年快乐！`;
+            } else {
+                overlayTitle.textContent = '💥 游戏结束 💥';
+                overlayMessage.textContent = `年兽躲避了 ${dodgedCount} 个鞭炮。再接再厉！`;
+            }
+
+            document.querySelector('.start-hint').textContent = '按 [空格键] 或 [回车键] 重新开始';
+        }
+
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw everything
+            drawBackground();
+            drawPlatforms();
+
+            if (gameState === 'playing') {
+                updatePlayer();
+                spawnFirecracker();
+                spawnRiceCake();
+                updateFirecrackers();
+                updateRiceCakes();
+            }
+
+            // Draw game objects
+            riceCakes.forEach(drawRiceCake);
+            firecrackers.forEach(drawFirecracker);
+            drawPlayer();
+            updateParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 'ArrowDown') keys.down = true;
+
+            if ((e.key === ' ' || e.key === 'Enter') && gameState !== 'playing') {
+                startGame();
+            }
+
+            e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 'ArrowDown') keys.down = false;
+        });
+
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>
