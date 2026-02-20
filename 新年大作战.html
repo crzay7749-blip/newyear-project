@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新年大作战 - 躲避年兽鞭炮</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #2c0a0a 0%, #4a1010 50%, #6b1515 100%);
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            display: block;
+            border: 4px solid #ffd700;
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.4);
+            cursor: crosshair;
+        }
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(139, 0, 0, 0.95);
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+            border: 4px solid #ffd700;
+        }
+        #startScreen {
+            display: block;
+            max-width: 500px;
+        }
+        #startScreen h1 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 36px;
+        }
+        #startScreen h2 {
+            color: #ffd700;
+            margin: 20px 0 10px 0;
+            font-size: 22px;
+        }
+        #startScreen p {
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .key-badge {
+            display: inline-block;
+            background: #333;
+            border: 2px solid #ffd700;
+            border-radius: 5px;
+            padding: 3px 8px;
+            margin: 0 3px;
+            font-family: monospace;
+            color: #ffd700;
+        }
+        .tip {
+            background: rgba(255, 215, 0, 0.2);
+            border-left: 4px solid #ffd700;
+            padding: 10px 15px;
+            margin: 15px 0;
+            text-align: left;
+        }
+        #gameOverScreen h1 {
+            color: #ffd700;
+            margin-bottom: 20px;
+            font-size: 36px;
+        }
+        #gameOverScreen p {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        #restartBtn {
+            background: linear-gradient(135deg, #ff6b6b, #ffd700);
+            color: #8b0000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        #restartBtn:hover, #startBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+        }
+        #startBtn {
+            background: linear-gradient(135deg, #ff6b6b, #ffd700);
+            color: #8b0000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        #fullscreenBtn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            color: #ffd700;
+            border: 3px solid #ffd700;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        #fullscreenBtn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+        /* 响应式游戏容器 */
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+        /* 难度选择按钮样式 */
+        .difficulty-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ffd700);
+            color: #8b0000;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        .difficulty-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+        }
+        .difficulty-btn.selected {
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+        }
+        #fullscreenBtn {
+            display: none; /* 隐藏全屏按钮，游戏已自动适应 */
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- 开始界面 -->
+        <div id="startScreen">
+            <h1>🎊 新年大作战 🎊</h1>
+            <p style="color: #ff6b6b; font-size: 14px;">躲避年兽的鞭炮攻击，击败BOSS获得胜利！</p>
+
+            <h2>🎮 操作指南</h2>
+            <p>移动: <span class="key-badge">↑</span><span class="key-badge">↓</span><span class="key-badge">←</span><span class="key-badge">→</span> 或 <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span></p>
+            <p>攻击: 按住 <span class="key-badge">左键</span> 或 <span class="key-badge">触摸</span> 拖拽瞄准，松开投掷</p>
+
+            <h2>🎯 游戏目标</h2>
+            <p>🔴 躲避年兽发射的红色鞭炮</p>
+            <p>🥟 收集饺子恢复生命值 (共3条命)</p>
+            <p>🧤 收集手套后可投掷攻击年兽</p>
+            <p>💀 击杀5只年兽后击败BOSS获胜！</p>
+
+            <h2>⚔️ 选择难度</h2>
+            <div style="margin: 15px 0;">
+                <button class="difficulty-btn selected" data-difficulty="heaven">😇 天堂版本</button>
+                <button class="difficulty-btn" data-difficulty="hell">🔥 地狱版本</button>
+            </div>
+            <p style="font-size: 13px; color: #aaa;">天堂版本：速度较慢，适合新手 | 地狱版本：原版难度</p>
+
+            <div class="tip">
+                <strong>💡 提示:</strong> 手套可以抵挡一次伤害，也可以用来攻击年兽！
+            </div>
+
+            <button id="startBtn">开始游戏</button>
+        </div>
+
+        <div id="gameOverScreen">
+            <h1 id="gameOverTitle">新年快乐!</h1>
+            <p id="gameOverMessage"></p>
+            <p>生存时间: <span id="finalTime">00:00</span></p>
+            <p>击杀年兽: <span id="finalScore">0</span> 只</p>
+            <button id="restartBtn">再战一年</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 游戏初始化 ====================
+        const canvas = document.getElementById('gameCanvas');
+        if (!canvas) {
+            console.error('Canvas element not found!');
+            alert('Canvas元素未找到！');
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.error('Canvas context not available!');
+            alert('Canvas上下文不可用！');
+        }
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+        const finalTimeElement = document.getElementById('finalTime');
+        const finalScoreElement = document.getElementById('finalScore');
+        const restartBtn = document.getElementById('restartBtn');
+        const startScreen = document.getElementById('startScreen');
+        const startBtn = document.getElementById('startBtn');
+
+        // 难度配置
+        const difficultySettings = {
+            heaven: {  // 天堂版本（当前新值）
+                name: '天堂版本',
+                dumplingSpeed: 2,
+                gloveSpeed: 1.7,
+                nianMoveSpeed: 0.8,
+                bossMoveSpeed: 0.5
+            },
+            hell: {  // 地狱版本（原困难值）
+                name: '地狱版本',
+                dumplingSpeed: 2.5,
+                gloveSpeed: 2,
+                nianMoveSpeed: 1,
+                bossMoveSpeed: 1.5
+            }
+        };
+
+        // 当前难度
+        let currentDifficulty = 'heaven';
+
+        // 游戏状态
+        let gameStarted = false; // 游戏是否已开始（点击了开始按钮）
+        let gameRunning = false; // 游戏是否运行中
+        let gameWon = false;
+        let killedNians = 0; // 击杀的年兽数量
+        let gameTime = 0; // 游戏时间（秒）
+        let gameStartTime = Date.now();
+        let lastNianSpawn = 0; // 上次生成年兽的时间
+        let bossActive = false; // BOSS是否激活
+        let bossDefeated = false; // BOSS是否被击败
+
+        // 小巫婆（二次元像素风）
+        const witch = {
+            x: 100,
+            y: 300,
+            width: 48,
+            height: 48,
+            speed: 3,
+            lives: 3,
+            invincible: false,
+            invincibleTimer: 0,
+            hurtTimer: 0,
+            animFrame: 0,
+            animTimer: 0,
+            hasGlove: false
+        };
+
+        // 瞄准状态
+        let isAiming = false;
+        let aimStartX = 0;
+        let aimStartY = 0;
+        let aimCurrentX = 0;
+        let aimCurrentY = 0;
+
+        // 投掷的手套数组
+        let thrownGloves = [];
+
+        // 按键状态
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+            W: false,
+            A: false,
+            S: false,
+            D: false
+        };
+
+        // 弹幕（鞭炮）数组
+        let bullets = [];
+
+        // 饺子数组
+        let dumplings = [];
+
+        // 手套数组
+        let gloves = [];
+
+        // 烟花效果数组
+        let fireworks = [];
+
+        // 粒子效果数组（用于BOSS死亡）
+        let particles = [];
+
+        // 年兽数组（动态生成）
+        let nians = [];
+
+        // BOSS年兽
+        let bossNian = null;
+
+        // 灯笼装饰
+        const lanterns = [];
+        for (let i = 0; i < 3; i++) {
+            lanterns.push({
+                x: 150 + i * 250,
+                y: 30,
+                swing: 0
+            });
+        }
+
+        // 背景烟花定时器
+        let lastBackgroundFirework = 0;
+
+        // 边界（最右边灯笼下方）
+        const boundaryX = 650 + 70;
+
+        // 格式化时间
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 绘制像素风二次元小巫婆
+        function drawWitch() {
+            const x = Math.floor(witch.x);
+            const y = Math.floor(witch.y);
+            const frame = Math.floor(witch.animFrame) % 4;
+
+            ctx.save();
+
+            // 受击抖动效果
+            let offsetX = 0;
+            let offsetY = 0;
+            if (witch.hurtTimer > 0) {
+                offsetX = Math.sin(witch.hurtTimer * 3) * 4;
+                offsetY = Math.cos(witch.hurtTimer * 2) * 3;
+                witch.hurtTimer--;
+            }
+
+            ctx.translate(offsetX, offsetY);
+
+            // 无敌闪烁效果
+            if (witch.invincible && Math.floor(Date.now() / 80) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
+
+            // 扫把（像素风金色）
+            const broomOffset = Math.sin(frame * Math.PI / 2) * 2;
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(x + 8, y + 30 + broomOffset, 32, 4);
+            ctx.fillStyle = '#DAA520';
+            ctx.fillRect(x + 10, y + 32 + broomOffset, 28, 2);
+
+            // 扫把毛（分层像素）
+            for (let i = 0; i < 6; i++) {
+                ctx.fillStyle = i % 2 === 0 ? '#FFD700' : '#DAA520';
+                ctx.fillRect(x + 38 + i * 3, y + 26 + broomOffset + Math.floor(i / 2) * 2, 4, 10);
+            }
+
+            // 身体（二次元风格红色斗篷）
+            ctx.fillStyle = '#E91E63';
+            ctx.fillRect(x + 14, y + 18, 20, 18);
+            ctx.fillStyle = '#FF4081';
+            ctx.fillRect(x + 16, y + 20, 16, 14);
+            ctx.fillStyle = '#F8BBD0';
+            ctx.fillRect(x + 18, y + 22, 12, 10);
+
+            // 腰带（金色）
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + 14, y + 30, 20, 3);
+
+            // 双腿（带动画）
+            ctx.fillStyle = '#FFE4C4';
+            const legSwing = Math.sin(frame * Math.PI / 2) * 2;
+            if (frame % 2 === 0) {
+                ctx.fillRect(x + 16, y + 33, 5, 8 + legSwing);
+                ctx.fillRect(x + 27, y + 33, 5, 8 - legSwing);
+            } else {
+                ctx.fillRect(x + 16, y + 33, 5, 8 - legSwing);
+                ctx.fillRect(x + 27, y + 33, 5, 8 + legSwing);
+            }
+
+            // 头部（二次元脸型）
+            ctx.fillStyle = '#FFE4C4';
+            ctx.fillRect(x + 12, y + 4, 24, 16);
+
+            // 头发（紫色长发）
+            ctx.fillStyle = '#9C27B0';
+            ctx.fillRect(x + 10, y + 2, 28, 6);
+            ctx.fillRect(x + 8, y + 6, 4, 14);
+            ctx.fillRect(x + 36, y + 6, 4, 14);
+
+            // 刘海（二次元风格）
+            ctx.fillStyle = '#AB47BC';
+            ctx.fillRect(x + 12, y + 2, 6, 6);
+            ctx.fillRect(x + 18, y + 2, 5, 5);
+            ctx.fillRect(x + 23, y + 2, 5, 5);
+            ctx.fillRect(x + 28, y + 2, 6, 6);
+
+            // 帽子（巫师帽，紫色）
+            ctx.fillStyle = '#7B1FA2';
+            ctx.fillRect(x + 14, y - 6, 20, 10);
+            ctx.fillRect(x + 20, y - 12, 8, 8);
+
+            // 帽子星星装饰
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + 22, y - 8, 4, 4);
+            ctx.fillRect(x + 21, y - 7, 2, 2);
+
+            // 大眼睛（二次元风格）
+            // 左眼
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 14, y + 8, 6, 6);
+            ctx.fillStyle = '#E91E63';
+            ctx.fillRect(x + 15, y + 9, 4, 4);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 16, y + 10, 2, 2);
+            // 右眼
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 28, y + 8, 6, 6);
+            ctx.fillStyle = '#E91E63';
+            ctx.fillRect(x + 29, y + 9, 4, 4);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 30, y + 10, 2, 2);
+
+            // 眼睛高光
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 16, y + 9, 2, 1);
+            ctx.fillRect(x + 30, y + 9, 2, 1);
+
+            // 小嘴巴（二次元风格）
+            ctx.fillStyle = '#FF80AB';
+            ctx.fillRect(x + 22, y + 16, 4, 2);
+
+            // 腮红
+            ctx.fillStyle = 'rgba(255, 128, 171, 0.6)';
+            ctx.fillRect(x + 10, y + 13, 4, 3);
+            ctx.fillRect(x + 34, y + 13, 4, 3);
+
+            // 如果有手套，画出手套
+            if (witch.hasGlove) {
+                ctx.fillStyle = '#FF8A65';
+                ctx.fillRect(x + 40, y + 10, 8, 8);
+                ctx.fillStyle = '#FFAB91';
+                ctx.fillRect(x + 41, y + 11, 3, 3);
+                ctx.fillRect(x + 44, y + 12, 3, 3);
+            }
+
+            ctx.restore();
+        }
+
+        // 绘制年兽（普通年兽和BOSS年兽）
+        function drawNian(nian) {
+            const x = nian.x;
+            const y = nian.y;
+            const frame = Math.floor(nian.animFrame) % 2;
+            const isBoss = nian.isBoss || false;
+
+            ctx.save();
+
+            // 计算震动偏移（幅度小且递减）
+            let shakeOffsetX = 0;
+            let shakeOffsetY = 0;
+            if (nian.shakeAmplitude > 0) {
+                shakeOffsetX = Math.sin(nian.shakePhase) * nian.shakeAmplitude;
+                shakeOffsetY = Math.cos(nian.shakePhase * 1.3) * nian.shakeAmplitude;
+            }
+
+            // 应用震动偏移
+            ctx.translate(shakeOffsetX, shakeOffsetY);
+
+            // 受击闪烁效果
+            if (nian.hitTimer > 0) {
+                ctx.globalAlpha = 0.6;
+                nian.hitTimer--;
+            }
+
+            // BOSS年兽大一些（1.5倍），普通年兽小一点（0.75倍）
+            const scale = isBoss ? 1.2 : 0.75;
+            const offsetX = (1 - scale) * 40;
+            const offsetY = (1 - scale) * 40;
+
+            // 身体
+            ctx.fillStyle = '#D32F2F';
+            ctx.fillRect(x + 20 - offsetX, y + 30 - offsetY, 50 * scale, 40 * scale);
+
+            // 头
+            ctx.fillStyle = '#F44336';
+            ctx.fillRect(x + 10 - offsetX, y + 10 - offsetY, 60 * scale, 30 * scale);
+
+            // 眼睛
+            ctx.fillStyle = '#FFEB3B';
+            ctx.fillRect(x + 20 - offsetX, y + 18 - offsetY, 12 * scale, 12 * scale);
+            ctx.fillRect(x + 45 - offsetX, y + 18 - offsetY, 12 * scale, 12 * scale);
+
+            // 眼珠
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 25 - offsetX, y + 22 - offsetY, 4 * scale, 4 * scale);
+            ctx.fillRect(x + 50 - offsetX, y + 22 - offsetY, 4 * scale, 4 * scale);
+
+            // 嘴巴
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 25 - offsetX, y + 35 - offsetY, 30 * scale, 8 * scale);
+            ctx.fillStyle = '#f00';
+            const teethOffset = frame === 0 ? 0 : 2;
+            ctx.fillRect(x + 28 - offsetX + teethOffset, y + 35 - offsetY, 4 * scale, 8 * scale);
+            ctx.fillRect(x + 36 - offsetX + teethOffset, y + 35 - offsetY, 4 * scale, 8 * scale);
+            ctx.fillRect(x + 44 - offsetX + teethOffset, y + 35 - offsetY, 4 * scale, 8 * scale);
+
+            // 角
+            ctx.fillStyle = '#FFD700';
+            const hornSize = isBoss ? 8 : 5;
+            ctx.beginPath();
+            ctx.moveTo(x + 15 - offsetX, y + 10 - offsetY);
+            ctx.lineTo(x + 20 - offsetX, y + 10 - offsetY - hornSize);
+            ctx.lineTo(x + 25 - offsetX, y + 10 - offsetY);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x + 55 - offsetX, y + 10 - offsetY);
+            ctx.lineTo(x + 60 - offsetX, y + 10 - offsetY - hornSize);
+            ctx.lineTo(x + 65 - offsetX, y + 10 - offsetY);
+            ctx.fill();
+
+            // BOSS怒吼特效
+            if (isBoss && nian.isRoaring) {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i * 45) * Math.PI / 180;
+                    ctx.beginPath();
+                    ctx.moveTo(x + 40 - offsetX, y + 40 - offsetY);
+                    ctx.lineTo(x + 40 - offsetX + Math.cos(angle) * 60, y + 40 - offsetY + Math.sin(angle) * 60);
+                    ctx.stroke();
+                }
+            }
+
+            // 腿
+            ctx.fillStyle = '#D32F2F';
+            if (frame === 0) {
+                ctx.fillRect(x + 25 - offsetX, y + 70 - offsetY, 10 * scale, 10 * scale);
+                ctx.fillRect(x + 55 - offsetX, y + 70 - offsetY, 10 * scale, 10 * scale);
+            } else {
+                ctx.fillRect(x + 30 - offsetX, y + 70 - offsetY, 10 * scale, 10 * scale);
+                ctx.fillRect(x + 50 - offsetX, y + 70 - offsetY, 10 * scale, 10 * scale);
+            }
+
+            ctx.restore();
+        }
+
+        // 绘制鞭炮弹幕
+        function drawBullets() {
+            bullets.forEach(bullet => {
+                ctx.save();
+                ctx.translate(bullet.x, bullet.y);
+                ctx.rotate(bullet.angle);
+
+                // 鞭炮主体（红色圆筒）
+                ctx.fillStyle = '#ff4444';
+                ctx.fillRect(-bullet.size, -bullet.size * 0.6, bullet.size * 2, bullet.size * 1.2);
+
+                // 鞭炮顶部金色装饰
+                ctx.fillStyle = '#ffd700';
+                ctx.fillRect(-bullet.size, -bullet.size * 0.6, bullet.size * 2, 3);
+
+                // 鞭炮底部金色装饰
+                ctx.fillRect(-bullet.size, bullet.size * 0.6 - 3, bullet.size * 2, 3);
+
+                // 引线（动态闪烁）
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                const flicker = Math.sin(Date.now() / 50) * 2;
+                ctx.beginPath();
+                ctx.moveTo(bullet.size, 0);
+                ctx.lineTo(bullet.size + 8, -3 + flicker);
+                ctx.stroke();
+
+                // 发光效果
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff4444';
+
+                ctx.restore();
+            });
+        }
+
+        // 绘制饺子（Emoji版）
+        function drawDumplings() {
+            dumplings.forEach(dumpling => {
+                ctx.save();
+
+                // 添加轻微阴影
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                // 绘制饺子emoji
+                ctx.font = '26px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🥟', dumpling.x, dumpling.y);
+
+                ctx.restore();
+            });
+        }
+
+        // 绘制手套（Emoji版）
+        function drawGloves() {
+            gloves.forEach(glove => {
+                ctx.save();
+
+                // 添加轻微阴影
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                // 绘制手套emoji
+                ctx.font = '22px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🧤', glove.x, glove.y);
+
+                ctx.restore();
+            });
+        }
+
+        // 绘制投掷的手套（Emoji版）
+        function drawThrownGloves() {
+            thrownGloves.forEach(glove => {
+                ctx.save();
+
+                const centerX = glove.x;
+                const centerY = glove.y;
+
+                // 移动到中心点以便旋转
+                ctx.translate(centerX, centerY);
+                ctx.rotate(glove.rotation);
+                ctx.translate(-centerX, -centerY);
+
+                // 添加轻微阴影
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                // 绘制手套emoji
+                ctx.font = '22px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🧤', centerX, centerY);
+
+                ctx.restore();
+            });
+        }
+
+        // 绘制愤怒的小鸟风格拖拽瞄准
+        function drawTrajectory() {
+            if (!witch.hasGlove || !isAiming) return;
+
+            const startX = witch.x + 44;
+            const startY = witch.y + 14;
+
+            // 计算拖拽向量（反向）
+            const dx = aimStartX - aimCurrentX;
+            const dy = aimStartY - aimCurrentY;
+
+            // 限制最大拉力
+            const maxPull = 150;
+            const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
+            const angle = Math.atan2(dy, dx);
+
+            // 力度系数
+            const power = pullDistance / 10;
+
+            // 绘制拖拽线（反向弹弓）
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX - dx * 0.5, startY - dy * 0.5);
+            ctx.stroke();
+
+            // 绘制力度圈
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(startX, startY, pullDistance * 0.3, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 绘制预测轨迹
+            if (pullDistance > 20) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 8]);
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+
+                let vx = Math.cos(angle) * power;
+                let vy = Math.sin(angle) * power;
+                let px = startX;
+                let py = startY;
+                const gravity = 0.3;
+
+                // 绘制前20帧的轨迹
+                for (let i = 0; i < 20; i++) {
+                    px += vx;
+                    py += vy;
+                    vy += gravity;
+                    ctx.lineTo(px, py);
+                }
+
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 绘制落点标记
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // 绘制烟花效果
+        function drawFireworks() {
+            fireworks = fireworks.filter(fw => {
+                fw.life--;
+
+                ctx.save();
+                ctx.globalAlpha = fw.life / 40;
+
+                fw.particles.forEach(p => {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(fw.x + p.x, fw.y + p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.08;
+                    p.size *= 0.97;
+                });
+
+                ctx.restore();
+                return fw.life > 0 && fw.particles[0].size > 0.5;
+            });
+        }
+
+        // 绘制背景
+        function drawBackground() {
+            // 新年红色渐变背景
+            const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+            gradient.addColorStop(0, '#1a0505');
+            gradient.addColorStop(0.3, '#2d0a0a');
+            gradient.addColorStop(0.7, '#4a1010');
+            gradient.addColorStop(1, '#6b1515');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 800, 600);
+
+            // 绘制灯笼
+            lanterns.forEach((lantern, index) => {
+                lantern.swing += 0.05;
+                const swingX = Math.sin(lantern.swing) * 5;
+
+                ctx.save();
+
+                // 灯笼线
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(lantern.x + swingX, 0);
+                ctx.lineTo(lantern.x + swingX, lantern.y);
+                ctx.stroke();
+
+                // 灯笼主体
+                const gradient = ctx.createRadialGradient(
+                    lantern.x + swingX, lantern.y + 25, 0,
+                    lantern.x + swingX, lantern.y + 25, 25
+                );
+                gradient.addColorStop(0, '#ff6b6b');
+                gradient.addColorStop(1, '#dc143c');
+                ctx.fillStyle = gradient;
+
+                ctx.beginPath();
+                ctx.ellipse(lantern.x + swingX, lantern.y + 25, 25, 20, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 灯笼金色边框
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(lantern.x + swingX, lantern.y + 25, 25, 20, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 灯笼顶部和底部
+                ctx.fillStyle = '#ffd700';
+                ctx.fillRect(lantern.x + swingX - 10, lantern.y, 20, 5);
+                ctx.fillRect(lantern.x + swingX - 10, lantern.y + 45, 20, 5);
+
+                // 福
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('福', lantern.x + swingX, lantern.y + 32);
+
+                // 流苏
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 2;
+                for (let i = -2; i <= 2; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(lantern.x + swingX + i * 5, lantern.y + 50);
+                    ctx.lineTo(lantern.x + swingX + i * 5, lantern.y + 70);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            });
+
+            // 绘制边界线
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(boundaryX, 0);
+            ctx.lineTo(boundaryX, 600);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // 绘制UI
+        function drawUI() {
+            // 标题
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 28px Microsoft YaHei';
+            ctx.textAlign = 'center';
+            ctx.fillText('新年大作战', 400, 35);
+
+            // 时间
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 24px Microsoft YaHei';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`时间: ${formatTime(gameTime)}`, 20, 75);
+
+            // 击杀年兽数量
+            ctx.font = 'bold 24px Microsoft YaHei';
+            ctx.fillText(`击杀: ${killedNians}/5`, 20, 100);
+
+            // 操作提示
+            if (witch.hasGlove) {
+                ctx.font = '16px Microsoft YaHei';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'right';
+                ctx.fillText('按住左键拖拽瞄准，松开投掷', 780, 580);
+            }
+
+            // BOSS血条
+            if (bossActive && bossNian) {
+                const bossMaxHp = 5;
+                const currentHp = bossNian.hp;
+                const barWidth = 300;
+                const barHeight = 25;
+                const barX = 400 - barWidth / 2;
+                const barY = 55;
+
+                // 血条背景
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
+
+                // 血条外框
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                // 血条填充
+                const hpRatio = currentHp / bossMaxHp;
+                const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth * hpRatio, barY);
+                gradient.addColorStop(0, '#ff0000');
+                gradient.addColorStop(0.5, '#ff6600');
+                gradient.addColorStop(1, '#ffff00');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(barX + 2, barY + 2, (barWidth - 4) * hpRatio, barHeight - 4);
+
+                // BOSS血量文字
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Microsoft YaHei';
+                ctx.textAlign = 'center';
+                ctx.fillText(`BOSS年兽 ${currentHp}/${bossMaxHp}`, 400, barY + 18);
+            }
+
+            // 生命值（饺子）
+            ctx.textAlign = 'left';
+            for (let i = 0; i < 3; i++) {
+                if (i < witch.lives) {
+                    ctx.fillStyle = '#fffaf0';
+                    ctx.strokeStyle = '#ffd700';
+                } else {
+                    ctx.fillStyle = '#333';
+                    ctx.strokeStyle = '#555';
+                }
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(690 + i * 40, 80, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        // 从指定年兽发射弹幕
+        function spawnBulletFromNian(nian) {
+            const baseSpeed = 2.5; // 移除difficulty依赖，使用固定速度
+            const types = [
+                { angle: Math.PI, speed: baseSpeed },
+                { angle: Math.PI + Math.PI / 10, speed: baseSpeed * 0.95 },
+                { angle: Math.PI - Math.PI / 10, speed: baseSpeed * 0.95 },
+                { angle: Math.PI + Math.PI / 8, speed: baseSpeed * 0.93 },
+                { angle: Math.PI - Math.PI / 8, speed: baseSpeed * 0.93 },
+                { angle: Math.PI + Math.PI / 6, speed: baseSpeed * 0.9 },
+                { angle: Math.PI - Math.PI / 6, speed: baseSpeed * 0.9 },
+                { angle: Math.PI + Math.PI / 5, speed: baseSpeed * 0.88 },
+                { angle: Math.PI - Math.PI / 5, speed: baseSpeed * 0.88 },
+                { angle: Math.PI + Math.PI / 4, speed: baseSpeed * 0.85 },
+                { angle: Math.PI - Math.PI / 4, speed: baseSpeed * 0.85 }
+            ];
+
+            const maxTypeIndex = types.length - 1; // 使用所有弹幕类型
+            const typeIndex = Math.floor(Math.random() * (maxTypeIndex + 1));
+            const type = types[typeIndex];
+
+            // 随机发射1-3个弹幕
+            const bulletCount = 1 + Math.floor(Math.random() * 3);
+
+            for (let i = 0; i < bulletCount; i++) {
+                // 为每个弹幕单独计算随机角度偏移，让轨迹更分散
+                const angleOffset = (Math.random() - 0.5) * 0.4; // 增加角度随机范围
+                const speedOffset = (Math.random() - 0.5) * 0.8; // 增加速度随机范围
+                const positionOffset = (Math.random() - 0.5) * 40; // 调整发射位置随机范围
+
+                bullets.push({
+                    x: nian.x,
+                    y: nian.y + 30 + positionOffset, // 调整到年兽中心
+                    size: 12 + Math.random() * 13,
+                    angle: type.angle + angleOffset,
+                    speed: Math.max(1.5, type.speed + speedOffset),
+                    color: '#ff4444'
+                });
+            }
+        }
+
+        // 生成饺子
+        function spawnDumpling() {
+            dumplings.push({
+                x: Math.random() * 600 + 50,
+                y: -20,
+                speed: difficultySettings[currentDifficulty].dumplingSpeed
+            });
+        }
+
+        // 生成手套
+        function spawnGlove() {
+            gloves.push({
+                x: Math.random() * 600 + 50,
+                y: -20,
+                speed: difficultySettings[currentDifficulty].gloveSpeed
+            });
+        }
+
+        // 创建烟花
+        function createFirework(x, y) {
+            const colors = ['#ff0000', '#ffd700', '#ff69b4', '#E91E63', '#00ff00', '#00ffff', '#9C27B0'];
+            const particles = [];
+            const particleCount = 25;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i * 360 / particleCount) * Math.PI / 180;
+                const speed = 2 + Math.random() * 3;
+                particles.push({
+                    x: 0,
+                    y: 0,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: 2 + Math.random() * 2
+                });
+            }
+            fireworks.push({
+                x: x,
+                y: y,
+                life: 40,
+                particles: particles
+            });
+        }
+
+        // 生成背景烟花
+        function spawnBackgroundFirework() {
+            createFirework(
+                100 + Math.random() * 600,
+                100 + Math.random() * 300
+            );
+        }
+
+        // 更新小巫婆
+        function updateWitch() {
+            // 支持箭头键和WASD
+            if (keys.ArrowUp || keys.w || keys.W) witch.y -= witch.speed;
+            if (keys.ArrowDown || keys.s || keys.S) witch.y += witch.speed;
+            if (keys.ArrowLeft || keys.a || keys.A) witch.x -= witch.speed;
+            if (keys.ArrowRight || keys.d || keys.D) witch.x += witch.speed;
+
+            // 边界限制
+            witch.x = Math.max(0, Math.min(boundaryX - 48, witch.x));
+            witch.y = Math.max(0, Math.min(552, witch.y));
+
+            witch.animTimer++;
+            if (witch.animTimer > 8) {
+                witch.animFrame++;
+                witch.animTimer = 0;
+            }
+
+            if (witch.invincible) {
+                witch.invincibleTimer--;
+                if (witch.invincibleTimer <= 0) {
+                    witch.invincible = false;
+                }
+            }
+        }
+
+        // 生成年兽（每15秒在边界后生成）
+        function spawnNian() {
+            if (bossActive) return; // BOSS出现后不再生成普通年兽
+
+            nians.push({
+                x: boundaryX + 10, // 边界右侧
+                y: 100 + Math.random() * 400,
+                width: 60, // 缩小尺寸
+                height: 60,
+                animFrame: 0,
+                animTimer: 0,
+                lastFire: 0,
+                fireRate: 800 + Math.random() * 600,
+                hitTimer: 0,
+                hp: 2, // 2次被打后死亡
+                isBoss: false,
+                isEscaping: false,
+                escapeSpeed: 0,
+                moveDirection: Math.random() > 0.5 ? 1 : -1, // 移动方向
+                moveSpeed: difficultySettings[currentDifficulty].nianMoveSpeed, // 移动速度
+                isHit: false, // 是否受击
+                hitFreezeTimer: 0, // 受击顿帧计时器（0.1s = 6帧）
+                shakeTimer: 0, // 震动计时器（0.5s = 30帧）
+                shakeAmplitude: 0, // 当前震动幅度
+                shakePhase: 0 // 震动相位
+            });
+        }
+
+        // 生成初始年兽（游戏开始时生成两只）
+        function spawnInitialNians() {
+            // 第一只年兽 - 上方区域
+            nians.push({
+                x: boundaryX + 10, // 边界右侧
+                y: 100,
+                width: 60, // 缩小尺寸
+                height: 60,
+                animFrame: 0,
+                animTimer: 0,
+                lastFire: 0,
+                fireRate: 800 + Math.random() * 600,
+                hitTimer: 0,
+                hp: 2,
+                isBoss: false,
+                isEscaping: false,
+                escapeSpeed: 0,
+                moveDirection: 1,
+                moveSpeed: difficultySettings[currentDifficulty].nianMoveSpeed,
+                isHit: false, // 是否受击
+                hitFreezeTimer: 0, // 受击顿帧计时器（0.1s = 6帧）
+                shakeTimer: 0, // 震动计时器（0.5s = 30帧）
+                shakeAmplitude: 0, // 当前震动幅度
+                shakePhase: 0 // 震动相位
+            });
+
+            // 第二只年兽 - 下方区域
+            nians.push({
+                x: boundaryX + 10, // 边界右侧
+                y: 420,
+                width: 60, // 缩小尺寸
+                height: 60,
+                animFrame: 0,
+                animTimer: 0,
+                lastFire: 0,
+                fireRate: 800 + Math.random() * 600,
+                hitTimer: 0,
+                hp: 2,
+                isBoss: false,
+                isEscaping: false,
+                escapeSpeed: 0,
+                moveDirection: -1,
+                moveSpeed: difficultySettings[currentDifficulty].nianMoveSpeed,
+                isHit: false, // 是否受击
+                hitFreezeTimer: 0, // 受击顿帧计时器（0.1s = 6帧）
+                shakeTimer: 0, // 震动计时器（0.5s = 30帧）
+                shakeAmplitude: 0, // 当前震动幅度
+                shakePhase: 0 // 震动相位
+            });
+        }
+
+        // 生成BOSS年兽
+        function spawnBossNian() {
+            bossActive = true;
+            bossNian = {
+                x: boundaryX + 100,
+                y: 260,
+                width: 120,
+                height: 120,
+                animFrame: 0,
+                animTimer: 0,
+                lastFire: 0,
+                fireRate: 2000,
+                hitTimer: 0,
+                hp: 5, // 5次被打后死亡
+                isBoss: true,
+                isEscaping: false,
+                isRoaring: false,
+                roarTimer: 0,
+                moveTimer: 0,
+                state: 'entering', // entering, moving, attacking
+                targetX: 400,
+                targetY: 300,
+                isHit: false, // 是否受击
+                hitFreezeTimer: 0, // 受击顿帧计时器（0.1s = 6帧）
+                shakeTimer: 0, // 震动计时器（0.5s = 30帧）
+                shakeAmplitude: 0, // 当前震动幅度
+                shakePhase: 0 // 震动相位
+            };
+        }
+
+        // 更新年兽
+        function updateNians(timestamp) {
+            // 更新普通年兽
+            nians.forEach(nian => {
+                // 处理受击顿帧和震动
+                if (nian.hitFreezeTimer > 0) {
+                    nian.hitFreezeTimer--;
+                    // 顿帧期间不更新其他状态
+                    return;
+                }
+
+                // 处理震动效果
+                if (nian.shakeTimer > 0) {
+                    nian.shakeTimer--;
+                    nian.shakePhase += 0.8; // 震动频率
+                    // 幅度递减：从3逐渐减小到0
+                    nian.shakeAmplitude = 3 * (nian.shakeTimer / 30);
+                } else {
+                    nian.shakeAmplitude = 0;
+                }
+
+                nian.animTimer++;
+                if (nian.animTimer > 15) {
+                    nian.animFrame++;
+                    nian.animTimer = 0;
+                }
+
+                // 上下往复移动逻辑
+                nian.y += nian.moveDirection * nian.moveSpeed;
+                // 边界检测，碰到边界反向
+                if (nian.y <= 50) {
+                    nian.y = 50;
+                    nian.moveDirection = 1;
+                } else if (nian.y >= 470) {
+                    nian.y = 470;
+                    nian.moveDirection = -1;
+                }
+
+                // 检查是否需要发射弹幕
+                if (!bossActive) {
+                    const fireRate = Math.max(400, nian.fireRate);
+                    if (timestamp - nian.lastFire > fireRate) {
+                        spawnBulletFromNian(nian);
+                        nian.lastFire = timestamp;
+                        nian.fireRate = 600 + Math.random() * 800;
+                    }
+                }
+            });
+
+            // 更新BOSS年兽
+            if (bossNian) {
+                // 处理受击顿帧和震动
+                if (bossNian.hitFreezeTimer > 0) {
+                    bossNian.hitFreezeTimer--;
+                    // 顿帧期间不更新其他状态
+                    return;
+                }
+
+                // 处理震动效果
+                if (bossNian.shakeTimer > 0) {
+                    bossNian.shakeTimer--;
+                    bossNian.shakePhase += 0.8; // 震动频率
+                    // 幅度递减：从3逐渐减小到0
+                    bossNian.shakeAmplitude = 3 * (bossNian.shakeTimer / 30);
+                } else {
+                    bossNian.shakeAmplitude = 0;
+                }
+
+                bossNian.animTimer++;
+                if (bossNian.animTimer > 15) {
+                    bossNian.animFrame++;
+                    bossNian.animTimer = 0;
+                }
+
+                // BOSS状态机
+                switch (bossNian.state) {
+                    case 'entering':
+                        // 从边界后进入
+                        bossNian.x -= 2;
+                        if (bossNian.x <= 600) {
+                            bossNian.state = 'moving';
+                            bossNian.moveTimer = 120;
+                            // 随机选择一个移动目标位置
+                            bossNian.targetX = 200 + Math.random() * 350;
+                            bossNian.targetY = 100 + Math.random() * 400;
+                        }
+                        break;
+
+                    case 'moving':
+                        // 向目标位置移动
+                        const dx = bossNian.targetX - bossNian.x;
+                        const dy = bossNian.targetY - bossNian.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist > 5) {
+                            bossNian.x += (dx / dist) * difficultySettings[currentDifficulty].bossMoveSpeed;
+                            bossNian.y += (dy / dist) * difficultySettings[currentDifficulty].bossMoveSpeed;
+                        } else {
+                            // 到达目标，开始攻击
+                            bossNian.state = 'attacking';
+                            bossNian.roarTimer = 60;
+                        }
+                        break;
+
+                    case 'attacking':
+                        bossNian.roarTimer--;
+
+                        // 怒吼动画
+                        if (bossNian.roarTimer > 30) {
+                            bossNian.isRoaring = true;
+                        } else {
+                            bossNian.isRoaring = false;
+                            // 发射鞭炮雨
+                            if (bossNian.roarTimer % 8 === 0 && bossNian.roarTimer > 0) {
+                                spawnBossBulletRain();
+                            }
+                        }
+
+                        // 攻击结束后回到移动状态
+                        if (bossNian.roarTimer <= 0) {
+                            bossNian.state = 'moving';
+                            bossNian.moveTimer = 120;
+                            bossNian.targetX = 200 + Math.random() * 350;
+                            bossNian.targetY = 100 + Math.random() * 400;
+                        }
+                        break;
+                }
+
+                // BOSS发射弹幕
+                if (timestamp - bossNian.lastFire > bossNian.fireRate) {
+                    spawnBulletFromNian(bossNian);
+                    bossNian.lastFire = timestamp;
+                }
+            }
+        }
+
+        // BOSS鞭炮雨攻击
+        function spawnBossBulletRain() {
+            const bulletCount = 5;
+            for (let i = 0; i < bulletCount; i++) {
+                const startX = 100 + Math.random() * 600;
+                bullets.push({
+                    x: startX,
+                    y: -20,
+                    size: 10 + Math.random() * 8,
+                    angle: Math.PI / 2 + (Math.random() - 0.5) * 0.3, // 向下稍微随机角度
+                    speed: 2 + Math.random() * 1.5,
+                    color: '#ff4444'
+                });
+            }
+        }
+
+        // 更新弹幕
+        function updateBullets() {
+            bullets = bullets.filter(bullet => {
+                bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+
+                // 飞出屏幕就移除（不再计分）
+                if (bullet.x < -30 || bullet.y < -30 || bullet.y > 630) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // 更新饺子
+        function updateDumplings() {
+            dumplings = dumplings.filter(dumpling => {
+                dumpling.y += dumpling.speed;
+
+                if (dumpling.y > 630) return false;
+
+                const dx = dumpling.x - (witch.x + 24);
+                const dy = dumpling.y - (witch.y + 24);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 30) {
+                    if (witch.lives < 3) {
+                        witch.lives++;
+                    }
+                    createFirework(dumpling.x, dumpling.y);
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        // 更新手套
+        function updateGloves() {
+            gloves = gloves.filter(glove => {
+                glove.y += glove.speed;
+
+                if (glove.y > 630) return false;
+
+                const dx = glove.x - (witch.x + 24);
+                const dy = glove.y - (witch.y + 24);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 30 && !witch.hasGlove) {
+                    witch.hasGlove = true;
+                    createFirework(glove.x, glove.y);
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        // 更新投掷的手套
+        function updateThrownGloves() {
+            thrownGloves = thrownGloves.filter(glove => {
+                glove.x += glove.vx;
+                glove.y += glove.vy;
+                glove.vy += 0.3; // 重力
+                glove.rotation += 0.15; // 旋转效果
+
+                // 检测是否击中普通年兽
+                for (let i = nians.length - 1; i >= 0; i--) {
+                    const nian = nians[i];
+                    const dx = glove.x - (nian.x + 30); // 调整为中心点（年兽是60x60）
+                    const dy = glove.y - (nian.y + 30);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 35) { // 调整碰撞半径
+                        // 触发受击效果：顿帧0.1s（6帧）+ 震动0.5s（30帧）
+                        nian.hitFreezeTimer = 6; // 0.1秒顿帧
+                        nian.shakeTimer = 30; // 0.5秒震动
+                        nian.shakeAmplitude = 3; // 初始震动幅度
+                        nian.shakePhase = 0; // 重置震动相位
+
+                        nian.hitTimer = 10;
+                        nian.hp--;
+                        createFirework(nian.x + 30, nian.y + 30);
+
+                        // 检查是否死亡
+                        if (nian.hp <= 0) {
+                            // 死亡时放烟花
+                            createFirework(nian.x + 30, nian.y + 30);
+                            createFirework(nian.x + 15, nian.y + 15);
+                            createFirework(nian.x + 45, nian.y + 15);
+                            createFirework(nian.x + 15, nian.y + 45);
+                            createFirework(nian.x + 45, nian.y + 45);
+
+                            // 移除年兽
+                            nians.splice(i, 1);
+                            killedNians++;
+
+                            // 检查是否应该出现BOSS
+                            if (killedNians >= 5 && !bossActive) {
+                                setTimeout(spawnBossNian, 2000);
+                            }
+                        }
+                        return false;
+                    }
+                }
+
+                // 检测是否击中BOSS年兽
+                if (bossNian) {
+                    const dx = glove.x - (bossNian.x + 60);
+                    const dy = glove.y - (bossNian.y + 60);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 70) {
+                        // 触发受击效果：顿帧0.1s（6帧）+ 震动0.5s（30帧）
+                        bossNian.hitFreezeTimer = 6; // 0.1秒顿帧
+                        bossNian.shakeTimer = 30; // 0.5秒震动
+                        bossNian.shakeAmplitude = 3; // 初始震动幅度
+                        bossNian.shakePhase = 0; // 重置震动相位
+
+                        bossNian.hitTimer = 10;
+                        bossNian.hp--;
+                        createFirework(bossNian.x + 60, bossNian.y + 60);
+
+                        // BOSS死亡
+                        if (bossNian.hp <= 0) {
+                            bossDeath();
+                        }
+                        return false;
+                    }
+                }
+
+                // 飞出屏幕
+                if (glove.x > 850 || glove.x < -50 || glove.y > 650 || glove.y < -50) {
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        // BOSS死亡效果（粒子化爆炸）
+        function bossDeath() {
+            bossDefeated = true;
+
+            // 创建大量粒子
+            const particleCount = 100;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i * 360 / particleCount) * Math.PI / 180;
+                const speed = 3 + Math.random() * 5;
+                particles.push({
+                    x: bossNian.x + 60,
+                    y: bossNian.y + 60,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 60,
+                    maxLife: 60,
+                    size: 3 + Math.random() * 4,
+                    color: ['#D32F2F', '#FF5722', '#FFD700', '#FFF176'][Math.floor(Math.random() * 4)]
+                });
+            }
+
+            // 创建多个烟花
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    createFirework(
+                        bossNian.x + 60 + (Math.random() - 0.5) * 100,
+                        bossNian.y + 60 + (Math.random() - 0.5) * 100
+                    );
+                }, i * 100);
+            }
+
+            bossNian = null;
+            bossActive = false;
+
+            // 游戏胜利
+            setTimeout(() => {
+                gameWin();
+            }, 2000);
+        }
+
+        // 更新粒子效果
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1; // 轻微重力
+                p.life--;
+
+                return p.life > 0;
+            });
+        }
+
+        // 绘制粒子效果
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // 游戏胜利
+        function gameWin() {
+            gameRunning = false;
+            gameWon = true;
+            finalTimeElement.textContent = formatTime(gameTime);
+            finalScoreElement.textContent = killedNians;
+            gameOverTitle.textContent = '新年快乐！';
+            gameOverMessage.textContent = '恭喜你击败了年兽BOSS！';
+            gameOverScreen.style.display = 'block';
+        }
+
+        // 碰撞检测
+        function checkCollisions() {
+            if (witch.invincible) return;
+
+            bullets = bullets.filter(bullet => {
+                const dx = bullet.x - (witch.x + 24);
+                const dy = bullet.y - (witch.y + 24);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // 如果有手套，可以防御一次
+                if (distance < bullet.size + 15) {
+                    if (witch.hasGlove) {
+                        witch.hasGlove = false;
+                        createFirework(bullet.x, bullet.y);
+                        return false;
+                    }
+
+                    witch.lives--;
+                    witch.invincible = true;
+                    witch.invincibleTimer = 90;
+                    witch.hurtTimer = 15;
+
+                    createFirework(witch.x + 24, witch.y + 24);
+
+                    if (witch.lives <= 0) {
+                        gameOver();
+                    }
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // 游戏结束（失败）
+        function gameOver() {
+            gameRunning = false;
+            gameWon = false;
+            finalTimeElement.textContent = formatTime(gameTime);
+            finalScoreElement.textContent = killedNians;
+            gameOverTitle.textContent = '游戏结束';
+            gameOverMessage.textContent = '年兽把你打败了...';
+            gameOverScreen.style.display = 'block';
+        }
+
+        // 重新开始
+        function restart() {
+            witch.x = 100;
+            witch.y = 300;
+            witch.lives = 3;
+            witch.invincible = false;
+            witch.hurtTimer = 0;
+            witch.hasGlove = false;
+            bullets = [];
+            dumplings = [];
+            gloves = [];
+            thrownGloves = [];
+            fireworks = [];
+            particles = [];
+            nians = [];
+            bossNian = null;
+            killedNians = 0;
+            bossActive = false;
+            bossDefeated = false;
+            gameRunning = true;
+            gameWon = false;
+            gameStarted = true;
+            gameTime = 0;
+            gameStartTime = Date.now();
+            lastNianSpawn = 0;
+            lastDumplingTime = 0;
+            lastGloveTime = 0;
+            lastBackgroundFirework = 0;
+            gameLoopInitialized = false;
+            gameOverScreen.style.display = 'none';
+            spawnInitialNians(); // 重新开始时生成初始两只年兽
+        }
+
+        // 开始游戏
+        function startGame() {
+            gameStarted = true;
+            gameRunning = true;
+            startScreen.style.display = 'none';
+            gameStartTime = Date.now();
+            // 重置所有时间戳，防止立即生成多个物品
+            lastNianSpawn = performance.now();
+            lastDumplingTime = performance.now();
+            lastGloveTime = performance.now();
+            gameLoopInitialized = false; // 重新初始化时间戳
+            spawnInitialNians(); // 生成初始两只年兽
+        }
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+
+        // 鼠标按下事件 - 开始拖拽瞄准
+        canvas.addEventListener('mousedown', (e) => {
+            if (witch.hasGlove && e.button === 0) {
+                const rect = canvas.getBoundingClientRect();
+                isAiming = true;
+                aimStartX = e.clientX - rect.left;
+                aimStartY = e.clientY - rect.top;
+                aimCurrentX = aimStartX;
+                aimCurrentY = aimStartY;
+            }
+        });
+
+        // 鼠标移动事件 - 更新拖拽位置
+        canvas.addEventListener('mousemove', (e) => {
+            if (isAiming) {
+                const rect = canvas.getBoundingClientRect();
+                aimCurrentX = e.clientX - rect.left;
+                aimCurrentY = e.clientY - rect.top;
+            }
+        });
+
+        // 鼠标抬起事件 - 投掷
+        canvas.addEventListener('mouseup', (e) => {
+            if (witch.hasGlove && e.button === 0 && isAiming) {
+                isAiming = false;
+
+                // 计算拖拽向量（反向）
+                const dx = aimStartX - aimCurrentX;
+                const dy = aimStartY - aimCurrentY;
+
+                // 限制最大拉力
+                const maxPull = 150;
+                const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
+                const angle = Math.atan2(dy, dx);
+
+                // 力度系数
+                const power = pullDistance / 10;
+
+                // 只有拉力足够才投掷
+                if (pullDistance > 20) {
+                    witch.hasGlove = false;
+                    thrownGloves.push({
+                        x: witch.x + 44,
+                        y: witch.y + 14,
+                        vx: Math.cos(angle) * power,
+                        vy: Math.sin(angle) * power,
+                        rotation: 0
+                    });
+                }
+            }
+        });
+
+        // 鼠标离开canvas - 取消瞄准
+        canvas.addEventListener('mouseleave', () => {
+            isAiming = false;
+        });
+
+        // 触摸事件支持（触控板/触摸屏）
+        canvas.addEventListener('touchstart', (e) => {
+            if (witch.hasGlove && e.touches.length === 1) {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                isAiming = true;
+                aimStartX = touch.clientX - rect.left;
+                aimStartY = touch.clientY - rect.top;
+                aimCurrentX = aimStartX;
+                aimCurrentY = aimStartY;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isAiming && e.touches.length === 1) {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                aimCurrentX = touch.clientX - rect.left;
+                aimCurrentY = touch.clientY - rect.top;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (witch.hasGlove && isAiming) {
+                e.preventDefault();
+                isAiming = false;
+
+                // 计算拖拽向量（反向）
+                const dx = aimStartX - aimCurrentX;
+                const dy = aimStartY - aimCurrentY;
+
+                // 限制最大拉力
+                const maxPull = 150;
+                const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
+                const angle = Math.atan2(dy, dx);
+
+                // 力度系数
+                const power = pullDistance / 10;
+
+                // 只有拉力足够才投掷
+                if (pullDistance > 20) {
+                    witch.hasGlove = false;
+                    thrownGloves.push({
+                        x: witch.x + 44,
+                        y: witch.y + 14,
+                        vx: Math.cos(angle) * power,
+                        vy: Math.sin(angle) * power,
+                        rotation: 0
+                    });
+                }
+            }
+        }, { passive: false });
+
+        restartBtn.addEventListener('click', restart);
+        startBtn.addEventListener('click', startGame);
+
+        // 难度选择功能
+        const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+        difficultyBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // 移除所有按钮的选中状态
+                difficultyBtns.forEach(b => b.classList.remove('selected'));
+                // 添加当前按钮的选中状态
+                btn.classList.add('selected');
+                // 设置当前难度
+                currentDifficulty = btn.dataset.difficulty;
+            });
+        });
+
+        // 游戏循环
+        let lastDumplingTime = 0;
+        let lastGloveTime = 0;
+        let gameLoopInitialized = false;
+
+        function gameLoop(timestamp) {
+            ctx.clearRect(0, 0, 800, 600);
+
+            // 初始化时间戳
+            if (!gameLoopInitialized) {
+                lastNianSpawn = timestamp;
+                lastDumplingTime = timestamp;
+                lastGloveTime = timestamp;
+                lastBackgroundFirework = timestamp;
+                gameLoopInitialized = true;
+            }
+
+            // 更新游戏时间
+            if (gameRunning && gameStarted) {
+                gameTime = (Date.now() - gameStartTime) / 1000;
+            }
+
+            drawBackground();
+
+            if (gameRunning && gameStarted) {
+                // 生成年兽（每15秒）
+                if (!bossActive && timestamp - lastNianSpawn > 15000) {
+                    spawnNian();
+                    lastNianSpawn = timestamp;
+                }
+
+                // 生成饺子
+                if (timestamp - lastDumplingTime > 8000) {
+                    spawnDumpling();
+                    lastDumplingTime = timestamp;
+                }
+
+                // 生成手套（每3秒）
+                if (timestamp - lastGloveTime > 3000) {
+                    spawnGlove();
+                    lastGloveTime = timestamp;
+                }
+
+                updateWitch();
+                updateNians(timestamp);
+                updateBullets();
+                updateDumplings();
+                updateGloves();
+                updateThrownGloves();
+                updateParticles();
+                checkCollisions();
+            }
+
+            // 持续更新粒子（即使游戏结束）
+            updateParticles();
+
+            // 持续生成背景烟花（每1.5秒一个）
+            if (timestamp - lastBackgroundFirework > 1500) {
+                spawnBackgroundFirework();
+                lastBackgroundFirework = timestamp;
+            }
+
+            drawFireworks();
+            drawParticles();
+
+            // 只在游戏开始后才绘制游戏元素
+            if (gameStarted) {
+                drawBullets();
+                drawDumplings();
+                drawGloves();
+                drawThrownGloves();
+                drawTrajectory();
+
+                // 绘制年兽
+                nians.forEach(nian => drawNian(nian));
+
+                // 绘制BOSS年兽
+                if (bossNian) {
+                    drawNian(bossNian);
+                }
+
+                if (gameRunning) {
+                    drawWitch();
+                }
+            }
+            drawUI();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 启动游戏循环（但不立即开始游戏）
+        gameLoop(0);
+    </script>
+</body>
+</html>

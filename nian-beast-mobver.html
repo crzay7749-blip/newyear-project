@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>年兽大冒险 - 春节弹幕躲避（手机版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a0000 0%, #4a0000 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #gameContainer {
+            position: relative;
+            border: 4px solid #8B4513;
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(255, 100, 0, 0.5);
+            width: 60vw;
+            height: 100vh;
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .ui-box {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            padding: 8px 15px;
+            color: #FFD700;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #health-bar {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            width: 20px;
+            height: 20px;
+            background: #FF0000;
+            clip-path: path('M10 3 C10 3 7 1 5 1 C2 1 0 4 0 7 C0 12 10 18 10 18 C10 18 20 12 20 7 C20 4 18 1 15 1 C13 1 10 3 10 3');
+        }
+
+        .heart.lost {
+            background: #444;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            text-align: center;
+            z-index: 100;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #overlay.hidden {
+            display: none;
+        }
+
+        #overlay h1 {
+            font-size: 32px;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 0 #8B0000;
+            letter-spacing: 4px;
+        }
+
+        #overlay h2 {
+            font-size: 36px;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 0 #8B0000;
+        }
+
+        #overlay p {
+            font-size: 14px;
+            margin: 8px 0;
+            color: #FFA500;
+        }
+
+        #overlay .start-hint {
+            font-size: 18px;
+            margin-top: 20px;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .controls-info {
+            margin-top: 15px;
+            text-align: left;
+            font-size: 12px;
+            color: #FFA500;
+            background: rgba(139, 69, 19, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #FFD700;
+            max-width: 350px;
+        }
+
+        .controls-info p {
+            margin: 6px 0;
+        }
+
+        .controls-info h3 {
+            color: #FFD700;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        /* 左右方向按钮容器 */
+        #directionButtons {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            display: none;
+        }
+
+        #directionButtons.active {
+            display: flex;
+        }
+
+        .dir-btn {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.3), rgba(255, 165, 0, 0.2));
+            border: 3px solid rgba(255, 215, 0, 0.6);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            font-size: 36px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        .dir-btn:active,
+        .dir-btn.pressed {
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.7), rgba(255, 165, 0, 0.5));
+            border-color: #FFD700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+            transform: scale(0.95);
+        }
+
+        .dir-btn .icon {
+            font-size: 40px;
+        }
+
+        /* 换层按钮容器 */
+        #layerButtons {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 50;
+            display: none;
+        }
+
+        #layerButtons.active {
+            display: flex;
+        }
+
+        .layer-btn {
+            width: 70px;
+            height: 70px;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.3), rgba(255, 165, 0, 0.2));
+            border: 3px solid rgba(255, 215, 0, 0.6);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        .layer-btn:active,
+        .layer-btn.pressed {
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.7), rgba(255, 165, 0, 0.5));
+            border-color: #FFD700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+            transform: scale(0.95);
+        }
+
+        .layer-btn .icon {
+            font-size: 32px;
+            margin-bottom: 2px;
+        }
+
+        .layer-btn .label {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        .layer-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* 横屏提示 */
+        #orientationWarning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            padding: 40px;
+            text-align: center;
+        }
+
+        #orientationWarning.active {
+            display: flex;
+        }
+
+        #orientationWarning h2 {
+            color: #FFD700;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        #orientationWarning p {
+            color: #FFA500;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        #orientationWarning .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: rotatePhone 2s ease-in-out infinite;
+        }
+
+        @keyframes rotatePhone {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-90deg); }
+            75% { transform: rotate(-90deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="ui">
+            <div class="ui-box">
+                <div id="health-bar">
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                </div>
+            </div>
+            <div class="ui-box">
+                已躲避: <span id="dodgeCount">0</span> / 150
+            </div>
+        </div>
+
+        <div id="overlay">
+            <h1>年兽大冒险</h1>
+            <h2 id="overlayTitle">🧧 春节快乐 🧧</h2>
+            <p id="overlayMessage">帮助年兽躲避从四面八方飞来的鞭炮！</p>
+
+            <div class="controls-info" style="margin-top: 15px;">
+                <h3>📜 游戏规则</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: start; gap: 8px;">
+                        <span style="color: #FF4500;">🎯</span>
+                        <span><strong>目标：</strong>成功躲避 150 个鞭炮即可通关</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 8px;">
+                        <span style="color: #FF4500;">💣</span>
+                        <span><strong>躲避：</strong>鞭炮会从上方、左方、右方飞来，碰到会失去一颗心</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 8px;">
+                        <span style="color: #FF4500;">🍘</span>
+                        <span><strong>恢复：</strong>收集年糕可恢复 1 点生命值（最多3颗心）</span>
+                    </div>
+                    <div style="display: flex; align-items: start; gap: 8px;">
+                        <span style="color: #FF4500;">⚡</span>
+                        <span><strong>难度：</strong>随着躲避数量增加，鞭炮会越来越快、越来越多</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-info" style="margin-top: 15px;">
+                <h3>📱 手机操作方式</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <p>⬅️➡️ <strong>左侧左右按钮：</strong>按住移动</p>
+                    <p>⬆️ <strong>右侧上层按钮：</strong>跳到上一层台阶</p>
+                    <p>⬇️ <strong>右侧下层按钮：</strong>降到下一层台阶</p>
+                    <p>💡 在不同层间灵活切换，寻找最佳躲避位置！</p>
+                </div>
+            </div>
+
+            <p class="start-hint">点击屏幕开始游戏</p>
+        </div>
+    </div>
+
+    <!-- 方向按钮 -->
+    <div id="directionButtons">
+        <button id="btnLeft" class="dir-btn">
+            <div class="icon">⬅️</div>
+        </button>
+        <button id="btnRight" class="dir-btn">
+            <div class="icon">➡️</div>
+        </button>
+    </div>
+
+    <!-- 换层按钮 -->
+    <div id="layerButtons">
+        <button id="btnUp" class="layer-btn">
+            <div class="icon">⬆️</div>
+            <div class="label">上层</div>
+        </button>
+        <button id="btnDown" class="layer-btn">
+            <div class="icon">⬇️</div>
+            <div class="label">下层</div>
+        </button>
+    </div>
+
+    <!-- 横屏提示 -->
+    <div id="orientationWarning">
+        <div class="icon">📱➡️📐</div>
+        <h2>请横屏游玩</h2>
+        <p>为了最佳游戏体验</p>
+        <p>请将手机横过来操作</p>
+        <p style="margin-top: 20px; font-size: 14px; color: #888;">Game is best played in landscape mode</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayMessage = document.getElementById('overlayMessage');
+        const dodgeCountEl = document.getElementById('dodgeCount');
+        const healthBar = document.getElementById('health-bar');
+        const directionButtons = document.getElementById('directionButtons');
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+        const layerButtons = document.getElementById('layerButtons');
+        const btnUp = document.getElementById('btnUp');
+        const btnDown = document.getElementById('btnDown');
+        const orientationWarning = document.getElementById('orientationWarning');
+
+        // Game constants
+        const PLATFORM_HEIGHT = 120;
+        const PLATFORM_WIDTH = 800;
+        const PLATFORM_Y_BOTTOM = 500;
+        const PLATFORM_Y_MIDDLE = PLATFORM_Y_BOTTOM - PLATFORM_HEIGHT;
+        const PLATFORM_Y_TOP = PLATFORM_Y_MIDDLE - PLATFORM_HEIGHT;
+        const PLAYER_SIZE = 40;
+        const FIRECRACKER_SIZE = 30;
+        const RICE_CAKE_SIZE = 25;
+
+        // Game state
+        let gameState = 'start'; // start, playing, won, lost
+        let player = {
+            x: 400,
+            y: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+            platformIndex: 2, // 0=top, 1=middle, 2=bottom
+            health: 3,
+            targetY: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+            velocityY: 0,
+            jumping: false,
+            hitTime: 0,
+            isInvincible: false
+        };
+
+        let firecrackers = [];
+        let riceCakes = [];
+        let dodgedCount = 0;
+        let targetDodge = 150;
+        let difficulty = 1;
+        let particles = [];
+        let lastFirecrackerTime = 0;
+        let lastFirecrackerTimeSide = 0;
+        let firecrackerInterval = 600;
+        let firecrackerIntervalSide = 800;
+        let lastRiceCakeTime = 0;
+
+        // Input handling
+        const keys = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
+
+        // Pixel art sprites
+        const nianSprite = [
+            '..........XXXXXX..........',
+            '.......XXXXXXXXXXXX........',
+            '......XXXXXXXXXXXXXX......',
+            '.....XXXXXXXXXXXXXXXX.....',
+            '....XXX...XXXX...XXX.....',
+            '...XX..X...XXXX...X..XX...',
+            '..XX...X...XXXX...X...XX..',
+            '.XX....X...XXXX...X....XX.',
+            '.XX....XXXXXXXXXXX....XX.',
+            '..XX....XXXXXXXXXXX....XX..',
+            '...XX....XXXXXXXXX....XX...',
+            '....XX...XXXXXXXXX...XX....',
+            '.....XXXXXXXXXXXXXXXX.....',
+            '......XXXXXXXXXXXXXX......',
+            '.......XXXXXXXXXXXX.......',
+            '........XXXXXXXXXX........'
+        ];
+
+        const firecrackerSprite = [
+            '....XX....',
+            '...XXXX...',
+            '..XXXXXX..',
+            '.XXXXXXXX.',
+            '.XXXXXXXX.',
+            '..XXXXXX..',
+            '...XXXX...',
+            '....XX....'
+        ];
+
+        const riceCakeSprite = [
+            '..XXXXXX..',
+            '.XXXXXXXX.',
+            '.XX.XX.XX.',
+            '.XX....XX.',
+            '.XX....XX.',
+            '.XX.XX.XX.',
+            '.XXXXXXXX.',
+            '..XXXXXX..'
+        ];
+
+        function drawPixelSprite(sprite, x, y, size, color) {
+            const pixelSize = size / sprite[0].length;
+            ctx.fillStyle = color;
+
+            for (let row = 0; row < sprite.length; row++) {
+                for (let col = 0; col < sprite[row].length; col++) {
+                    if (sprite[row][col] === 'X') {
+                        ctx.fillRect(
+                            x + col * pixelSize,
+                            y + row * pixelSize,
+                            pixelSize,
+                            pixelSize
+                        );
+                    }
+                }
+            }
+        }
+
+        function drawBackground() {
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#2d0a0a');
+            gradient.addColorStop(0.5, '#4a1515');
+            gradient.addColorStop(1, '#1a0505');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw decorative lanterns
+            drawLantern(100, 80);
+            drawLantern(700, 80);
+            drawLantern(400, 50);
+
+            // Draw decorative "福" character
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(360, 100, 80, 80);
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 50px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('福', 400, 160);
+
+            // Draw clouds
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.1)';
+            for (let i = 0; i < 5; i++) {
+                const cloudX = (Date.now() / 50 + i * 200) % (canvas.width + 200) - 100;
+                ctx.beginPath();
+                ctx.arc(cloudX, 60 + i * 20, 40, 0, Math.PI * 2);
+                ctx.arc(cloudX + 30, 50 + i * 20, 35, 0, Math.PI * 2);
+                ctx.arc(cloudX + 60, 60 + i * 20, 40, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawLantern(x, y) {
+            // Lantern body
+            const gradient = ctx.createRadialGradient(x + 20, y + 40, 5, x + 20, y + 40, 30);
+            gradient.addColorStop(0, '#FF6B6B');
+            gradient.addColorStop(1, '#8B0000');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(x + 20, y + 40, 20, 30, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gold border
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Tassel
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + 15, y + 70, 10, 20);
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + 20, y + 40, 40, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawPlatforms() {
+            const platformY = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+
+            platformY.forEach((y, index) => {
+                // Platform shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(20, y + 10, PLATFORM_WIDTH - 40, 15);
+
+                // Main platform
+                const gradient = ctx.createLinearGradient(0, y, 0, y + 15);
+                gradient.addColorStop(0, '#CD853F');
+                gradient.addColorStop(0.5, '#8B4513');
+                gradient.addColorStop(1, '#654321');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, y, PLATFORM_WIDTH, 15);
+
+                // Platform top highlight
+                ctx.fillStyle = '#DEB887';
+                ctx.fillRect(0, y, PLATFORM_WIDTH, 3);
+
+                // Decorative pattern
+                ctx.fillStyle = '#FFD700';
+                for (let i = 0; i < PLATFORM_WIDTH; i += 80) {
+                    ctx.fillRect(i + 35, y + 5, 10, 5);
+                }
+            });
+        }
+
+        function drawPlayer() {
+            // 检查无敌状态和闪烁效果
+            const now = Date.now();
+            if (player.isInvincible) {
+                if (now - player.hitTime > 1000) {
+                    player.isInvincible = false;
+                } else {
+                    const flashPhase = Math.floor((now - player.hitTime) / 100) % 2;
+                    if (flashPhase === 0) {
+                        ctx.globalAlpha = 0.3;
+                    }
+                }
+            }
+
+            // Draw shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE + 5, 15, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body gradient
+            const gradient = ctx.createRadialGradient(
+                player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE / 2, 5,
+                player.x + PLAYER_SIZE / 2, player.y + PLAYER_SIZE / 2, PLAYER_SIZE
+            );
+            gradient.addColorStop(0, '#FF6B6B');
+            gradient.addColorStop(0.7, '#DC143C');
+            gradient.addColorStop(1, '#8B0000');
+
+            // Draw body
+            ctx.fillStyle = gradient;
+            ctx.fillRect(player.x + 5, player.y + 10, PLAYER_SIZE - 10, PLAYER_SIZE - 10);
+
+            // Draw head
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(player.x + 10, player.y, PLAYER_SIZE - 20, 15);
+
+            // Draw horns
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(player.x + 10, player.y);
+            ctx.lineTo(player.x + 5, player.y - 8);
+            ctx.lineTo(player.x + 15, player.y + 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(player.x + PLAYER_SIZE - 10, player.y);
+            ctx.lineTo(player.x + PLAYER_SIZE - 5, player.y - 8);
+            ctx.lineTo(player.x + PLAYER_SIZE - 15, player.y + 2);
+            ctx.fill();
+
+            // Draw eyes
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(player.x + 12, player.y + 5, 5, 5);
+            ctx.fillRect(player.x + PLAYER_SIZE - 17, player.y + 5, 5, 5);
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 14, player.y + 6, 2, 3);
+            ctx.fillRect(player.x + PLAYER_SIZE - 15, player.y + 6, 2, 3);
+
+            // Draw mane
+            ctx.fillStyle = '#FFD700';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(player.x + 8 + i * 10, player.y - 3, 6, 8);
+            }
+
+            // Draw legs
+            ctx.fillStyle = '#DC143C';
+            const legOffset = Math.sin(Date.now() / 100) * 2;
+            ctx.fillRect(player.x + 8, player.y + PLAYER_SIZE - 8, 8, 8 + legOffset);
+            ctx.fillRect(player.x + PLAYER_SIZE - 16, player.y + PLAYER_SIZE - 8, 8, 8 - legOffset);
+
+            // Draw claws
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(player.x + 6, player.y + PLAYER_SIZE + legOffset, 10, 3);
+            ctx.fillRect(player.x + PLAYER_SIZE - 16, player.y + PLAYER_SIZE - legOffset, 10, 3);
+
+            ctx.globalAlpha = 1;
+        }
+
+        function drawFirecracker(firecracker) {
+            const x = firecracker.x;
+            const y = firecracker.y;
+            const size = FIRECRACKER_SIZE;
+            const direction = firecracker.direction || 'down';
+
+            ctx.save();
+
+            if (direction === 'right') {
+                ctx.translate(x + size / 2, y + size / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.translate(-(x + size / 2), -(y + size / 2));
+            } else if (direction === 'left') {
+                ctx.translate(x + size / 2, y + size / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.translate(-(x + size / 2), -(y + size / 2));
+            }
+
+            // Glow effect
+            ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw firecracker string
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(x + size / 2 - 3, y, 6, size);
+
+            // Draw individual crackers
+            for (let i = 0; i < 4; i++) {
+                const crackerY = y + i * 8;
+                ctx.fillStyle = i % 2 === 0 ? '#FF4500' : '#DC143C';
+                ctx.fillRect(x, crackerY, size, 8);
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(x, crackerY, size, 2);
+            }
+
+            // Draw fuse spark
+            let sparkX = x + size / 2;
+            let sparkY = y - 5;
+
+            if (direction === 'right') {
+                sparkX = x - 5;
+                sparkY = y + size / 2;
+            } else if (direction === 'left') {
+                sparkX = x + size + 5;
+                sparkY = y + size / 2;
+            }
+
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(sparkX, sparkY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#FF6B00';
+            ctx.beginPath();
+            ctx.arc(sparkX, sparkY, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw particles
+            if (Math.random() > 0.7) {
+                particles.push({
+                    x: sparkX,
+                    y: sparkY,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: -Math.random() * 3,
+                    life: 20,
+                    color: Math.random() > 0.5 ? '#FFD700' : '#FF6B00'
+                });
+            }
+
+            ctx.restore();
+        }
+
+        function drawRiceCake(riceCake) {
+            const x = riceCake.x;
+            const y = riceCake.y;
+            const size = RICE_CAKE_SIZE;
+            const pulse = Math.sin(Date.now() / 200) * 3;
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2 + pulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rice cake body
+            const gradient = ctx.createRadialGradient(
+                x + size / 2, y + size / 2, 5,
+                x + size / 2, y + size / 2, size
+            );
+            gradient.addColorStop(0, '#FFFAF0');
+            gradient.addColorStop(1, '#F5DEB3');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+
+            // Highlight
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(x + 5, y + 5, 8, 3);
+
+            // Gold decoration
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x + size / 2 - 4, y + size / 2 - 4, 8, 8);
+            ctx.fillStyle = '#DAA520';
+            ctx.fillRect(x + size / 2 - 2, y + size / 2 - 2, 4, 4);
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1;
+                p.life--;
+
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 20;
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+                ctx.globalAlpha = 1;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function updatePlayer() {
+            const speed = 5;
+            const platforms = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+
+            if (keys.left) {
+                player.x -= speed;
+            }
+            if (keys.right) {
+                player.x += speed;
+            }
+
+            // Boundary check
+            player.x = Math.max(0, Math.min(canvas.width - PLAYER_SIZE, player.x));
+
+            // Platform switching
+            if (keys.up && !player.jumping && player.platformIndex > 0) {
+                const targetPlatformIndex = player.platformIndex - 1;
+                player.jumping = true;
+                player.jumpProgress = 0;
+                player.jumpStartY = player.y;
+                player.jumpTargetY = platforms[targetPlatformIndex] - PLAYER_SIZE;
+                player.jumpPeakY = Math.min(player.y, player.jumpTargetY) - 30;
+                player.platformIndex = targetPlatformIndex;
+                keys.up = false; // 立即重置，防止连续触发
+                updateLayerButtons(); // 更新按钮状态
+            }
+            if (keys.down && !player.jumping && player.platformIndex < 2) {
+                const targetPlatformIndex = player.platformIndex + 1;
+                player.jumping = true;
+                player.jumpProgress = 0;
+                player.jumpStartY = player.y;
+                player.jumpTargetY = platforms[targetPlatformIndex] - PLAYER_SIZE;
+                player.jumpPeakY = Math.min(player.y, player.jumpTargetY) - 30;
+                player.platformIndex = targetPlatformIndex;
+                keys.down = false; // 立即重置，防止连续触发
+                updateLayerButtons(); // 更新按钮状态
+            }
+
+            // Jump animation with arc
+            if (player.jumping) {
+                player.jumpProgress += 0.05; // 稍微加快跳跃速度
+
+                // 使用容差检查，确保跳跃总是完成
+                if (player.jumpProgress >= 0.99) {
+                    player.jumpProgress = 1;
+                    player.jumping = false;
+                    player.y = player.jumpTargetY; // 强制设置到目标位置
+                    updateLayerButtons(); // 跳跃完成后更新按钮状态
+                } else {
+                    const progress = player.jumpProgress;
+                    const arcHeight = Math.sin(progress * Math.PI) * 30;
+                    const baseY = player.jumpStartY + (player.jumpTargetY - player.jumpStartY) * progress;
+                    player.y = baseY - arcHeight;
+                }
+            } else {
+                // 确保不在跳跃时，玩家位置正确地在平台上
+                player.y = platforms[player.platformIndex] - PLAYER_SIZE;
+            }
+        }
+
+        function spawnFirecracker() {
+            const now = Date.now();
+
+            if (now - lastFirecrackerTime > firecrackerInterval) {
+                firecrackers.push({
+                    x: Math.random() * (canvas.width - FIRECRACKER_SIZE),
+                    y: -FIRECRACKER_SIZE,
+                    speed: 2.5 + difficulty * 0.2,
+                    direction: 'down',
+                    counted: false
+                });
+                lastFirecrackerTime = now;
+            }
+
+            if (now - lastFirecrackerTimeSide > firecrackerIntervalSide) {
+                const fromLeft = Math.random() > 0.5;
+                const platforms = [PLATFORM_Y_TOP + 15, PLATFORM_Y_MIDDLE + 15, PLATFORM_Y_BOTTOM + 15];
+                const targetPlatform = platforms[Math.floor(Math.random() * 3)];
+
+                if (fromLeft) {
+                    firecrackers.push({
+                        x: -FIRECRACKER_SIZE,
+                        y: targetPlatform - FIRECRACKER_SIZE - Math.random() * 20,
+                        speed: 3 + difficulty * 0.25,
+                        direction: 'right',
+                        counted: false
+                    });
+                } else {
+                    firecrackers.push({
+                        x: canvas.width,
+                        y: targetPlatform - FIRECRACKER_SIZE - Math.random() * 20,
+                        speed: 3 + difficulty * 0.25,
+                        direction: 'left',
+                        counted: false
+                    });
+                }
+                lastFirecrackerTimeSide = now;
+            }
+        }
+
+        function spawnRiceCake() {
+            const now = Date.now();
+            if (now - lastRiceCakeTime > 5000 && riceCakes.length < 3) {
+                const platformIndex = Math.floor(Math.random() * 3);
+                const platforms = [PLATFORM_Y_TOP, PLATFORM_Y_MIDDLE, PLATFORM_Y_BOTTOM];
+                riceCakes.push({
+                    x: Math.random() * (canvas.width - RICE_CAKE_SIZE - 40) + 20,
+                    y: platforms[platformIndex] - RICE_CAKE_SIZE,
+                    platformIndex: platformIndex,
+                    spawnTime: now
+                });
+                lastRiceCakeTime = now;
+            }
+        }
+
+        function updateFirecrackers() {
+            for (let i = firecrackers.length - 1; i >= 0; i--) {
+                const firecracker = firecrackers[i];
+
+                if (firecracker.direction === 'down') {
+                    firecracker.y += firecracker.speed;
+                } else if (firecracker.direction === 'right') {
+                    firecracker.x += firecracker.speed;
+                } else if (firecracker.direction === 'left') {
+                    firecracker.x -= firecracker.speed;
+                }
+
+                if (checkCollision(player, firecracker) && !player.isInvincible) {
+                    player.health--;
+                    player.isInvincible = true;
+                    player.hitTime = Date.now();
+                    updateHealthBar();
+                    firecrackers.splice(i, 1);
+
+                    for (let j = 0; j < 20; j++) {
+                        particles.push({
+                            x: player.x + PLAYER_SIZE / 2,
+                            y: player.y + PLAYER_SIZE / 2,
+                            vx: (Math.random() - 0.5) * 8,
+                            vy: (Math.random() - 0.5) * 8,
+                            life: 30,
+                            color: Math.random() > 0.5 ? '#FF4500' : '#FFD700'
+                        });
+                    }
+
+                    if (player.health <= 0) {
+                        endGame(false);
+                    }
+                    continue;
+                }
+
+                const isOffScreen = (
+                    (firecracker.direction === 'down' && firecracker.y > canvas.height) ||
+                    (firecracker.direction === 'right' && firecracker.x > canvas.width) ||
+                    (firecracker.direction === 'left' && firecracker.x < -FIRECRACKER_SIZE)
+                );
+
+                if (isOffScreen) {
+                    if (!firecracker.counted) {
+                        dodgedCount++;
+                        dodgeCountEl.textContent = dodgedCount;
+                        firecracker.counted = true;
+
+                        if (dodgedCount % 15 === 0) {
+                            difficulty++;
+                            firecrackerInterval = Math.max(200, firecrackerInterval - 40);
+                            firecrackerIntervalSide = Math.max(300, firecrackerIntervalSide - 50);
+                        }
+
+                        if (dodgedCount >= targetDodge) {
+                            endGame(true);
+                        }
+                    }
+                    firecrackers.splice(i, 1);
+                }
+            }
+        }
+
+        function updateRiceCakes() {
+            for (let i = riceCakes.length - 1; i >= 0; i--) {
+                const riceCake = riceCakes[i];
+
+                if (checkRiceCakeCollision(player, riceCake)) {
+                    if (player.health < 3) {
+                        player.health++;
+                        updateHealthBar();
+                    }
+                    riceCakes.splice(i, 1);
+
+                    for (let j = 0; j < 15; j++) {
+                        particles.push({
+                            x: riceCake.x + RICE_CAKE_SIZE / 2,
+                            y: riceCake.y + RICE_CAKE_SIZE / 2,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 25,
+                            color: '#FFD700'
+                        });
+                    }
+                    continue;
+                }
+
+                if (Date.now() - riceCake.spawnTime > 15000) {
+                    riceCakes.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollision(player, firecracker) {
+            return player.x < firecracker.x + FIRECRACKER_SIZE &&
+                   player.x + PLAYER_SIZE > firecracker.x &&
+                   player.y < firecracker.y + FIRECRACKER_SIZE &&
+                   player.y + PLAYER_SIZE > firecracker.y;
+        }
+
+        function checkRiceCakeCollision(player, riceCake) {
+            return player.x < riceCake.x + RICE_CAKE_SIZE &&
+                   player.x + PLAYER_SIZE > riceCake.x &&
+                   player.y < riceCake.y + RICE_CAKE_SIZE &&
+                   player.y + PLAYER_SIZE > riceCake.y;
+        }
+
+        function updateHealthBar() {
+            const hearts = healthBar.querySelectorAll('.heart');
+            hearts.forEach((heart, index) => {
+                if (index < player.health) {
+                    heart.classList.remove('lost');
+                } else {
+                    heart.classList.add('lost');
+                }
+            });
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            player = {
+                x: 400,
+                y: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+                platformIndex: 2,
+                health: 3,
+                targetY: PLATFORM_Y_BOTTOM - PLAYER_SIZE,
+                velocityY: 0,
+                jumping: false,
+                hitTime: 0,
+                isInvincible: false
+            };
+            firecrackers = [];
+            riceCakes = [];
+            particles = [];
+            dodgedCount = 0;
+            difficulty = 1;
+            firecrackerInterval = 600;
+            firecrackerIntervalSide = 800;
+            lastFirecrackerTime = Date.now();
+            lastFirecrackerTimeSide = Date.now();
+            lastRiceCakeTime = Date.now();
+
+            dodgeCountEl.textContent = '0';
+            updateHealthBar();
+            overlay.classList.add('hidden');
+
+            // 显示虚拟控制
+            directionButtons.classList.add('active');
+            layerButtons.classList.add('active');
+            updateLayerButtons();
+        }
+
+        function endGame(won) {
+            gameState = won ? 'won' : 'lost';
+            overlay.classList.remove('hidden');
+
+            // 隐藏虚拟控制
+            directionButtons.classList.remove('active');
+            layerButtons.classList.remove('active');
+
+            if (won) {
+                overlayTitle.textContent = '🎉 恭喜通关！🎉';
+                overlayMessage.textContent = `年兽成功躲避了 ${dodgedCount} 个鞭炮！新年快乐！`;
+            } else {
+                overlayTitle.textContent = '💥 游戏结束 💥';
+                overlayMessage.textContent = `年兽躲避了 ${dodgedCount} 个鞭炮。再接再厉！`;
+            }
+
+            document.querySelector('.start-hint').textContent = '点击屏幕重新开始';
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+            drawPlatforms();
+
+            if (gameState === 'playing') {
+                updatePlayer();
+                spawnFirecracker();
+                spawnRiceCake();
+                updateFirecrackers();
+                updateRiceCakes();
+            }
+
+            riceCakes.forEach(drawRiceCake);
+            firecrackers.forEach(drawFirecracker);
+            drawPlayer();
+            updateParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============ 方向按钮处理 ============
+        function handleDirectionLeftStart(e) {
+            e.preventDefault();
+            if (gameState === 'playing') {
+                btnLeft.classList.add('pressed');
+                keys.left = true;
+            }
+        }
+
+        function handleDirectionLeftEnd(e) {
+            e.preventDefault();
+            btnLeft.classList.remove('pressed');
+            keys.left = false;
+        }
+
+        function handleDirectionRightStart(e) {
+            e.preventDefault();
+            if (gameState === 'playing') {
+                btnRight.classList.add('pressed');
+                keys.right = true;
+            }
+        }
+
+        function handleDirectionRightEnd(e) {
+            e.preventDefault();
+            btnRight.classList.remove('pressed');
+            keys.right = false;
+        }
+
+        // ============ 换层按钮处理 ============
+        function handleLayerUp(e) {
+            e.preventDefault();
+            if (gameState !== 'playing' || player.jumping) return;
+            if (player.platformIndex > 0) {
+                btnUp.classList.add('pressed');
+                keys.up = true;
+                setTimeout(() => {
+                    btnUp.classList.remove('pressed');
+                }, 100);
+            }
+        }
+
+        function handleLayerDown(e) {
+            e.preventDefault();
+            if (gameState !== 'playing' || player.jumping) return;
+            if (player.platformIndex < 2) {
+                btnDown.classList.add('pressed');
+                keys.down = true;
+                setTimeout(() => {
+                    btnDown.classList.remove('pressed');
+                }, 100);
+            }
+        }
+
+        function updateLayerButtons() {
+            // 根据当前层更新按钮状态
+            btnUp.disabled = player.platformIndex <= 0 || player.jumping;
+            btnDown.disabled = player.platformIndex >= 2 || player.jumping;
+        }
+
+        // ============ 事件监听器 ============
+
+        // 方向按钮事件（触摸）
+        btnLeft.addEventListener('touchstart', handleDirectionLeftStart, { passive: false });
+        btnLeft.addEventListener('touchend', handleDirectionLeftEnd, { passive: false });
+        btnLeft.addEventListener('touchcancel', handleDirectionLeftEnd, { passive: false });
+
+        btnRight.addEventListener('touchstart', handleDirectionRightStart, { passive: false });
+        btnRight.addEventListener('touchend', handleDirectionRightEnd, { passive: false });
+        btnRight.addEventListener('touchcancel', handleDirectionRightEnd, { passive: false });
+
+        // 方向按钮事件（鼠标，用于测试）
+        btnLeft.addEventListener('mousedown', handleDirectionLeftStart);
+        btnLeft.addEventListener('mouseup', handleDirectionLeftEnd);
+        btnLeft.addEventListener('mouseleave', handleDirectionLeftEnd);
+
+        btnRight.addEventListener('mousedown', handleDirectionRightStart);
+        btnRight.addEventListener('mouseup', handleDirectionRightEnd);
+        btnRight.addEventListener('mouseleave', handleDirectionRightEnd);
+
+        // 换层按钮事件
+        btnUp.addEventListener('touchstart', handleLayerUp, { passive: false });
+        btnDown.addEventListener('touchstart', handleLayerDown, { passive: false });
+        btnUp.addEventListener('click', handleLayerUp);
+        btnDown.addEventListener('click', handleLayerDown);
+
+        // 点击overlay开始游戏
+        overlay.addEventListener('click', () => {
+            if (gameState !== 'playing') {
+                startGame();
+            }
+        });
+
+        // 键盘支持（保留用于调试）
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 'ArrowDown') keys.down = true;
+
+            if ((e.key === ' ' || e.key === 'Enter') && gameState !== 'playing') {
+                startGame();
+            }
+
+            e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 'ArrowDown') keys.down = false;
+        });
+
+        // ============ 横屏检测 ============
+        function checkOrientation() {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const isSmallScreen = window.innerWidth < 600;
+
+            // 在竖屏或小屏幕上显示横屏提示
+            if (isPortrait && isSmallScreen) {
+                orientationWarning.classList.add('active');
+            } else {
+                orientationWarning.classList.remove('active');
+            }
+        }
+
+        // 初始检测
+        checkOrientation();
+
+        // 监听屏幕方向变化
+        window.addEventListener('resize', () => {
+            checkOrientation();
+        });
+
+        window.addEventListener('orientationchange', () => {
+            // 延迟检测，等待浏览器完成旋转
+            setTimeout(() => {
+                checkOrientation();
+            }, 100);
+        });
+
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>
