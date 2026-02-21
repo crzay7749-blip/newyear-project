@@ -249,17 +249,25 @@
         const difficultySettings = {
             heaven: {  // 天堂版本（当前新值）
                 name: '天堂版本',
-                dumplingSpeed: 2,
-                gloveSpeed: 1.7,
-                nianMoveSpeed: 0.8,
-                bossMoveSpeed: 0.5
+                dumplingSpeed: 6,
+                gloveSpeed: 5.1,
+                nianMoveSpeed: 2.4,
+                bossMoveSpeed: 1.5,
+                bossHp: 5,
+                bossFireRate: 2000,
+                nianSpawnInterval: 15000,
+                bulletsPerShot: 1
             },
             hell: {  // 地狱版本（原困难值）
                 name: '地狱版本',
-                dumplingSpeed: 2.5,
-                gloveSpeed: 2,
-                nianMoveSpeed: 1,
-                bossMoveSpeed: 1.5
+                dumplingSpeed: 7.5,
+                gloveSpeed: 6,
+                nianMoveSpeed: 3,
+                bossMoveSpeed: 4.5,
+                bossHp: 8,
+                bossFireRate: 1200,
+                nianSpawnInterval: 12000,
+                bulletsPerShot: 2
             }
         };
 
@@ -283,7 +291,7 @@
             y: 300,
             width: 48,
             height: 48,
-            speed: 3,
+            speed: 9,
             lives: 3,
             invincible: false,
             invincibleTimer: 0,
@@ -377,7 +385,6 @@
             if (witch.hurtTimer > 0) {
                 offsetX = Math.sin(witch.hurtTimer * 3) * 4;
                 offsetY = Math.cos(witch.hurtTimer * 2) * 3;
-                witch.hurtTimer--;
             }
 
             ctx.translate(offsetX, offsetY);
@@ -515,7 +522,6 @@
             // 受击闪烁效果
             if (nian.hitTimer > 0) {
                 ctx.globalAlpha = 0.6;
-                nian.hitTimer--;
             }
 
             // BOSS年兽大一些（1.5倍），普通年兽小一点（0.75倍）
@@ -637,7 +643,7 @@
                 ctx.shadowOffsetY = 2;
 
                 // 绘制饺子emoji
-                ctx.font = '26px Arial';
+                ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🥟', dumpling.x, dumpling.y);
@@ -658,7 +664,7 @@
                 ctx.shadowOffsetY = 2;
 
                 // 绘制手套emoji
-                ctx.font = '22px Arial';
+                ctx.font = '26px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🧤', glove.x, glove.y);
@@ -687,7 +693,7 @@
                 ctx.shadowOffsetY = 2;
 
                 // 绘制手套emoji
-                ctx.font = '22px Arial';
+                ctx.font = '26px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🧤', centerX, centerY);
@@ -712,8 +718,8 @@
             const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
             const angle = Math.atan2(dy, dx);
 
-            // 力度系数
-            const power = pullDistance / 10;
+            // 力度系数（提高投掷速度）
+            const power = pullDistance / 7;
 
             // 绘制拖拽线（反向弹弓）
             ctx.save();
@@ -748,8 +754,8 @@
                 let py = startY;
                 const gravity = 0.3;
 
-                // 绘制前20帧的轨迹
-                for (let i = 0; i < 20; i++) {
+                // 绘制前10帧的轨迹（降低长度）
+                for (let i = 0; i < 10; i++) {
                     px += vx;
                     py += vy;
                     vy += gravity;
@@ -772,7 +778,7 @@
         // 绘制烟花效果
         function drawFireworks() {
             fireworks = fireworks.filter(fw => {
-                fw.life--;
+                fw.life -= deltaTime;
 
                 ctx.save();
                 ctx.globalAlpha = fw.life / 40;
@@ -783,10 +789,10 @@
                     ctx.arc(fw.x + p.x, fw.y + p.y, p.size, 0, Math.PI * 2);
                     ctx.fill();
 
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.vy += 0.08;
-                    p.size *= 0.97;
+                    p.x += p.vx * deltaTime;
+                    p.y += p.vy * deltaTime;
+                    p.vy += 0.08 * deltaTime;
+                    p.size *= Math.pow(0.97, deltaTime);
                 });
 
                 ctx.restore();
@@ -807,7 +813,7 @@
 
             // 绘制灯笼
             lanterns.forEach((lantern, index) => {
-                lantern.swing += 0.05;
+                lantern.swing += 0.05 * deltaTime;
                 const swingX = Math.sin(lantern.swing) * 5;
 
                 ctx.save();
@@ -903,7 +909,7 @@
 
             // BOSS血条
             if (bossActive && bossNian) {
-                const bossMaxHp = 5;
+                const bossMaxHp = bossNian.maxHp;
                 const currentHp = bossNian.hp;
                 const barWidth = 300;
                 const barHeight = 25;
@@ -955,7 +961,7 @@
 
         // 从指定年兽发射弹幕
         function spawnBulletFromNian(nian) {
-            const baseSpeed = 2.5; // 移除difficulty依赖，使用固定速度
+            const baseSpeed = 7.5; // 降低25%
             const types = [
                 { angle: Math.PI, speed: baseSpeed },
                 { angle: Math.PI + Math.PI / 10, speed: baseSpeed * 0.95 },
@@ -974,8 +980,9 @@
             const typeIndex = Math.floor(Math.random() * (maxTypeIndex + 1));
             const type = types[typeIndex];
 
-            // 随机发射1-3个弹幕
-            const bulletCount = 1 + Math.floor(Math.random() * 3);
+            // 随机发射弹幕数量（基于难度）
+            const baseBullets = difficultySettings[currentDifficulty].bulletsPerShot;
+            const bulletCount = baseBullets + Math.floor(Math.random() * 3);
 
             for (let i = 0; i < bulletCount; i++) {
                 // 为每个弹幕单独计算随机角度偏移，让轨迹更分散
@@ -1047,24 +1054,30 @@
 
         // 更新小巫婆
         function updateWitch() {
-            // 支持箭头键和WASD
-            if (keys.ArrowUp || keys.w || keys.W) witch.y -= witch.speed;
-            if (keys.ArrowDown || keys.s || keys.S) witch.y += witch.speed;
-            if (keys.ArrowLeft || keys.a || keys.A) witch.x -= witch.speed;
-            if (keys.ArrowRight || keys.d || keys.D) witch.x += witch.speed;
+            // 支持箭头键和WASD（使用deltaTime）
+            const moveSpeed = witch.speed * deltaTime;
+            if (keys.ArrowUp || keys.w || keys.W) witch.y -= moveSpeed;
+            if (keys.ArrowDown || keys.s || keys.S) witch.y += moveSpeed;
+            if (keys.ArrowLeft || keys.a || keys.A) witch.x -= moveSpeed;
+            if (keys.ArrowRight || keys.d || keys.D) witch.x += moveSpeed;
 
             // 边界限制
             witch.x = Math.max(0, Math.min(boundaryX - 48, witch.x));
             witch.y = Math.max(0, Math.min(552, witch.y));
 
-            witch.animTimer++;
+            witch.animTimer += deltaTime;
             if (witch.animTimer > 8) {
                 witch.animFrame++;
                 witch.animTimer = 0;
             }
 
+            // 更新受击计时器
+            if (witch.hurtTimer > 0) {
+                witch.hurtTimer -= deltaTime;
+            }
+
             if (witch.invincible) {
-                witch.invincibleTimer--;
+                witch.invincibleTimer -= deltaTime;
                 if (witch.invincibleTimer <= 0) {
                     witch.invincible = false;
                 }
@@ -1161,9 +1174,10 @@
                 animFrame: 0,
                 animTimer: 0,
                 lastFire: 0,
-                fireRate: 2000,
+                fireRate: difficultySettings[currentDifficulty].bossFireRate,
                 hitTimer: 0,
-                hp: 5, // 5次被打后死亡
+                hp: difficultySettings[currentDifficulty].bossHp, // 基于难度的血量
+                maxHp: difficultySettings[currentDifficulty].bossHp, // 记录最大血量用于血条
                 isBoss: true,
                 isEscaping: false,
                 isRoaring: false,
@@ -1186,29 +1200,34 @@
             nians.forEach(nian => {
                 // 处理受击顿帧和震动
                 if (nian.hitFreezeTimer > 0) {
-                    nian.hitFreezeTimer--;
+                    nian.hitFreezeTimer -= deltaTime;
                     // 顿帧期间不更新其他状态
                     return;
                 }
 
+                // 更新受击闪烁计时器
+                if (nian.hitTimer > 0) {
+                    nian.hitTimer -= deltaTime;
+                }
+
                 // 处理震动效果
                 if (nian.shakeTimer > 0) {
-                    nian.shakeTimer--;
-                    nian.shakePhase += 0.8; // 震动频率
+                    nian.shakeTimer -= deltaTime;
+                    nian.shakePhase += 0.8 * deltaTime; // 震动频率
                     // 幅度递减：从3逐渐减小到0
                     nian.shakeAmplitude = 3 * (nian.shakeTimer / 30);
                 } else {
                     nian.shakeAmplitude = 0;
                 }
 
-                nian.animTimer++;
+                nian.animTimer += deltaTime;
                 if (nian.animTimer > 15) {
                     nian.animFrame++;
                     nian.animTimer = 0;
                 }
 
-                // 上下往复移动逻辑
-                nian.y += nian.moveDirection * nian.moveSpeed;
+                // 上下往复移动逻辑（使用deltaTime）
+                nian.y += nian.moveDirection * nian.moveSpeed * deltaTime;
                 // 边界检测，碰到边界反向
                 if (nian.y <= 50) {
                     nian.y = 50;
@@ -1233,22 +1252,27 @@
             if (bossNian) {
                 // 处理受击顿帧和震动
                 if (bossNian.hitFreezeTimer > 0) {
-                    bossNian.hitFreezeTimer--;
+                    bossNian.hitFreezeTimer -= deltaTime;
                     // 顿帧期间不更新其他状态
                     return;
                 }
 
+                // 更新受击闪烁计时器
+                if (bossNian.hitTimer > 0) {
+                    bossNian.hitTimer -= deltaTime;
+                }
+
                 // 处理震动效果
                 if (bossNian.shakeTimer > 0) {
-                    bossNian.shakeTimer--;
-                    bossNian.shakePhase += 0.8; // 震动频率
+                    bossNian.shakeTimer -= deltaTime;
+                    bossNian.shakePhase += 0.8 * deltaTime; // 震动频率
                     // 幅度递减：从3逐渐减小到0
                     bossNian.shakeAmplitude = 3 * (bossNian.shakeTimer / 30);
                 } else {
                     bossNian.shakeAmplitude = 0;
                 }
 
-                bossNian.animTimer++;
+                bossNian.animTimer += deltaTime;
                 if (bossNian.animTimer > 15) {
                     bossNian.animFrame++;
                     bossNian.animTimer = 0;
@@ -1257,8 +1281,8 @@
                 // BOSS状态机
                 switch (bossNian.state) {
                     case 'entering':
-                        // 从边界后进入
-                        bossNian.x -= 2;
+                        // 从边界后进入（使用deltaTime）
+                        bossNian.x -= 2 * deltaTime;
                         if (bossNian.x <= 600) {
                             bossNian.state = 'moving';
                             bossNian.moveTimer = 120;
@@ -1269,31 +1293,42 @@
                         break;
 
                     case 'moving':
-                        // 向目标位置移动
+                        // 向目标位置移动（使用deltaTime）
                         const dx = bossNian.targetX - bossNian.x;
                         const dy = bossNian.targetY - bossNian.y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
 
                         if (dist > 5) {
-                            bossNian.x += (dx / dist) * difficultySettings[currentDifficulty].bossMoveSpeed;
-                            bossNian.y += (dy / dist) * difficultySettings[currentDifficulty].bossMoveSpeed;
+                            const moveSpeed = difficultySettings[currentDifficulty].bossMoveSpeed * deltaTime;
+                            bossNian.x += (dx / dist) * moveSpeed;
+                            bossNian.y += (dy / dist) * moveSpeed;
                         } else {
                             // 到达目标，开始攻击
                             bossNian.state = 'attacking';
                             bossNian.roarTimer = 60;
+                            // 记录攻击开始时间，用于计算弹幕雨频率
+                            bossNian.attackStartTime = timestamp;
                         }
                         break;
 
                     case 'attacking':
-                        bossNian.roarTimer--;
+                        bossNian.roarTimer -= deltaTime;
 
                         // 怒吼动画
                         if (bossNian.roarTimer > 30) {
                             bossNian.isRoaring = true;
                         } else {
                             bossNian.isRoaring = false;
-                            // 发射鞭炮雨
-                            if (bossNian.roarTimer % 8 === 0 && bossNian.roarTimer > 0) {
+                            // 发射鞭炮雨，频率随时间推移提升
+                            // 地狱难度：从8帧逐渐减少到4帧
+                            // 天堂难度：从8帧逐渐减少到6帧
+                            const baseInterval = 8;
+                            const minInterval = currentDifficulty === 'hell' ? 4 : 6;
+                            const timeSinceAttackStart = (timestamp - bossNian.attackStartTime) / 1000; // 秒
+                            const difficultyBonus = currentDifficulty === 'hell' ? 0.8 : 0.4; // 地狱难度提升更快
+                            const currentInterval = Math.max(minInterval, baseInterval - timeSinceAttackStart * difficultyBonus);
+
+                            if (bossNian.roarTimer > 0 && Math.floor(bossNian.roarTimer) % Math.floor(currentInterval) === 0) {
                                 spawnBossBulletRain();
                             }
                         }
@@ -1326,7 +1361,7 @@
                     y: -20,
                     size: 10 + Math.random() * 8,
                     angle: Math.PI / 2 + (Math.random() - 0.5) * 0.3, // 向下稍微随机角度
-                    speed: 2 + Math.random() * 1.5,
+                    speed: 6 + Math.random() * 5.25, // 降低25%
                     color: '#ff4444'
                 });
             }
@@ -1335,8 +1370,8 @@
         // 更新弹幕
         function updateBullets() {
             bullets = bullets.filter(bullet => {
-                bullet.x += Math.cos(bullet.angle) * bullet.speed;
-                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                bullet.x += Math.cos(bullet.angle) * bullet.speed * deltaTime;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed * deltaTime;
 
                 // 飞出屏幕就移除（不再计分）
                 if (bullet.x < -30 || bullet.y < -30 || bullet.y > 630) {
@@ -1349,7 +1384,7 @@
         // 更新饺子
         function updateDumplings() {
             dumplings = dumplings.filter(dumpling => {
-                dumpling.y += dumpling.speed;
+                dumpling.y += dumpling.speed * deltaTime;
 
                 if (dumpling.y > 630) return false;
 
@@ -1357,7 +1392,7 @@
                 const dy = dumpling.y - (witch.y + 24);
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance < 30) {
+                if (distance < 35) {  // 调整碰撞范围以匹配饺子大小
                     if (witch.lives < 3) {
                         witch.lives++;
                     }
@@ -1372,7 +1407,7 @@
         // 更新手套
         function updateGloves() {
             gloves = gloves.filter(glove => {
-                glove.y += glove.speed;
+                glove.y += glove.speed * deltaTime;
 
                 if (glove.y > 630) return false;
 
@@ -1380,7 +1415,7 @@
                 const dy = glove.y - (witch.y + 24);
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance < 30 && !witch.hasGlove) {
+                if (distance < 35 && !witch.hasGlove) {  // 调整碰撞范围以匹配手套大小
                     witch.hasGlove = true;
                     createFirework(glove.x, glove.y);
                     return false;
@@ -1393,10 +1428,10 @@
         // 更新投掷的手套
         function updateThrownGloves() {
             thrownGloves = thrownGloves.filter(glove => {
-                glove.x += glove.vx;
-                glove.y += glove.vy;
-                glove.vy += 0.3; // 重力
-                glove.rotation += 0.15; // 旋转效果
+                glove.x += glove.vx * deltaTime;
+                glove.y += glove.vy * deltaTime;
+                glove.vy += 0.3 * deltaTime; // 重力
+                glove.rotation += 0.15 * deltaTime; // 旋转效果
 
                 // 检测是否击中普通年兽
                 for (let i = nians.length - 1; i >= 0; i--) {
@@ -1515,10 +1550,10 @@
         // 更新粒子效果
         function updateParticles() {
             particles = particles.filter(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.vy += 0.1; // 轻微重力
-                p.life--;
+                p.x += p.vx * deltaTime;
+                p.y += p.vy * deltaTime;
+                p.vy += 0.1 * deltaTime; // 轻微重力
+                p.life -= deltaTime;
 
                 return p.life > 0;
             });
@@ -1665,8 +1700,8 @@
             }
         });
 
-        // 鼠标移动事件 - 更新拖拽位置
-        canvas.addEventListener('mousemove', (e) => {
+        // 鼠标移动事件 - 更新拖拽位置（移到document上，支持拖出canvas）
+        document.addEventListener('mousemove', (e) => {
             if (isAiming) {
                 const rect = canvas.getBoundingClientRect();
                 aimCurrentX = e.clientX - rect.left;
@@ -1674,8 +1709,8 @@
             }
         });
 
-        // 鼠标抬起事件 - 投掷
-        canvas.addEventListener('mouseup', (e) => {
+        // 鼠标抬起事件 - 投掷（移到document上，支持拖出canvas）
+        document.addEventListener('mouseup', (e) => {
             if (witch.hasGlove && e.button === 0 && isAiming) {
                 isAiming = false;
 
@@ -1688,8 +1723,8 @@
                 const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
                 const angle = Math.atan2(dy, dx);
 
-                // 力度系数
-                const power = pullDistance / 10;
+                // 力度系数（提高投掷速度）
+                const power = pullDistance / 7;
 
                 // 只有拉力足够才投掷
                 if (pullDistance > 20) {
@@ -1703,11 +1738,6 @@
                     });
                 }
             }
-        });
-
-        // 鼠标离开canvas - 取消瞄准
-        canvas.addEventListener('mouseleave', () => {
-            isAiming = false;
         });
 
         // 触摸事件支持（触控板/触摸屏）
@@ -1748,8 +1778,8 @@
                 const pullDistance = Math.min(Math.sqrt(dx * dx + dy * dy), maxPull);
                 const angle = Math.atan2(dy, dx);
 
-                // 力度系数
-                const power = pullDistance / 10;
+                // 力度系数（提高投掷速度）
+                const power = pullDistance / 7;
 
                 // 只有拉力足够才投掷
                 if (pullDistance > 20) {
@@ -1785,8 +1815,18 @@
         let lastDumplingTime = 0;
         let lastGloveTime = 0;
         let gameLoopInitialized = false;
+        let lastFrameTime = 0;
+        let deltaTime = 1; // 默认为1（60FPS）
 
         function gameLoop(timestamp) {
+            // 计算deltaTime，归一化到60FPS
+            if (lastFrameTime > 0) {
+                deltaTime = (timestamp - lastFrameTime) / 1000 * 60; // 转换为帧数倍数
+            }
+            lastFrameTime = timestamp;
+            // 限制deltaTime范围，防止切换标签页后突然跳跃
+            deltaTime = Math.min(deltaTime, 3);
+
             ctx.clearRect(0, 0, 800, 600);
 
             // 初始化时间戳
@@ -1806,8 +1846,8 @@
             drawBackground();
 
             if (gameRunning && gameStarted) {
-                // 生成年兽（每15秒）
-                if (!bossActive && timestamp - lastNianSpawn > 15000) {
+                // 生成年兽（基于难度）
+                if (!bossActive && timestamp - lastNianSpawn > difficultySettings[currentDifficulty].nianSpawnInterval) {
                     spawnNian();
                     lastNianSpawn = timestamp;
                 }
